@@ -5,9 +5,9 @@
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "lucide-react": "^0.284.0",
-    "clsx": "^2.0.0",
-    "tailwind-merge": "^1.14.0"
+    "lucide-react": "^0.453.0",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.5.4"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",

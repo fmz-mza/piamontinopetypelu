@@ -1,87 +1,102 @@
-import React, { useState, useEffect } from 'react';
-import { Button, Clock, Text } from '@shadcn/ui';
+import React, { useState, useEffect, useRef } from 'react';
+import { Play, Square, RotateCcw, Clock } from 'lucide-react';
 
 const PomodoroTimer = () => {
-  const [time, setTime] = useState({ minutes: 25, seconds: 0 });
+  const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [isRunning, setIsRunning] = useState(false);
-  const [intervalId, setIntervalId] = useState(null);
   const [completedPomodoros, setCompletedPomodoros] = useState(0);
-  const [isLongBreak, setIsLongBreak] = useState(false);
+  const [mode, setMode] = useState<'work' | 'shortBreak' | 'longBreak'>('work');
+  
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Timer logic
-  const startTimer = () => {
-    setIsRunning(true);
-    const timer = setInterval(() => {
-      if (time.seconds > 0) {
-        setTime({ ...time, seconds: time.seconds - 1 });
-      } else if (time.minutes > 0) {
-        setTime({ ...time, minutes: time.minutes - 1, seconds: 59 });
-      } else {
-        setIsRunning(false);
-        clearInterval(timer);
-        setIntervalId(null);
+  useEffect(() => {
+    if (isRunning && timeLeft > 0) {
+      timerRef.current = setInterval(() => {
+        setTimeLeft((prev) => prev - 1);
+      }, 1000);
+    } else if (timeLeft === 0) {
+      handleTimerComplete();
+    }
 
-        // Update completed Pomodoros
-        if (!isLongBreak) {
-          setCompletedPomodoros(completedPomodoros + 1);
-          if (completedPomodoros % 4 === 0) {
-            setIsLongBreak(true);
-          }
-        }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isRunning, timeLeft]);
 
-        // Set break duration
-        const breakDuration = isLongBreak ? 15 : 5;
-        setTime({ minutes: breakDuration, seconds: 0 });
-        setIsLongBreak(false);
-      }
-    }, 1000);
-    setIntervalId(timer);
-  };
-
-  const stopTimer = () => {
+  const handleTimerComplete = () => {
     setIsRunning(false);
-    clearInterval(intervalId);
+    if (timerRef.current) clearInterval(timerRef.current);
+
+    if (mode === 'work') {
+      const newCount = completedPomodoros + 1;
+      setCompletedPomodoros(newCount);
+      if (newCount % 4 === 0) {
+        setMode('longBreak');
+        setTimeLeft(15 * 60);
+      } else {
+        setMode('shortBreak');
+        setTimeLeft(5 * 60);
+      }
+    } else {
+      setMode('work');
+      setTimeLeft(25 * 60);
+    }
   };
+
+  const toggleTimer = () => setIsRunning(!isRunning);
 
   const resetTimer = () => {
-    stopTimer();
-    setTime({ minutes: 25, seconds: 0 });
-    setIsLongBreak(false);
+    setIsRunning(false);
+    if (timerRef.current) clearInterval(timerRef.current);
+    setMode('work');
+    setTimeLeft(25 * 60);
     setCompletedPomodoros(0);
   };
 
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
-    <div className="p-6 max-w-md mx-auto bg-white rounded-lg shadow-md">
-      <h1 className="text-2xl font-bold mb-4 text-center">Pomodoro Timer</h1>
+    <div className="p-8 max-w-md w-full bg-white rounded-2xl shadow-xl border border-gray-100">
+      <div className="flex flex-col items-center space-y-6">
+        <div className="flex items-center space-x-2 text-gray-500 font-medium uppercase tracking-wider text-sm">
+          <Clock size={18} />
+          <span>{mode === 'work' ? 'Focus Session' : mode === 'shortBreak' ? 'Short Break' : 'Long Break'}</span>
+        </div>
 
-      <Clock
-        time={`${time.minutes}:${time.seconds < 10 ? '0' : ''}${time.seconds}`}
-        className="text-4xl font-bold text-center mb-4"
-      />
+        <div className="text-7xl font-bold text-gray-800 tabular-nums">
+          {formatTime(timeLeft)}
+        </div>
 
-      <div className="flex justify-center mb-4">
-        <Button
-          onClick={isRunning ? stopTimer : startTimer}
-          className="px-4 py-2 bg-blue-500 text-white rounded-md mr-2"
-        >
-          {isRunning ? 'Stop' : 'Start'}
-        </Button>
+        <div className="flex space-x-4">
+          <button
+            onClick={toggleTimer}
+            className={`flex items-center justify-center w-16 h-16 rounded-full transition-all ${
+              isRunning 
+                ? 'bg-amber-100 text-amber-600 hover:bg-amber-200' 
+                : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-200'
+            }`}
+          >
+            {isRunning ? <Square fill="currentColor" size={24} /> : <Play fill="currentColor" size={24} className="ml-1" />}
+          </button>
 
-        <Button
-          onClick={resetTimer}
-          className="px-4 py-2 bg-red-500 text-white rounded-md"
-        >
-          Reset
-        </Button>
+          <button
+            onClick={resetTimer}
+            className="flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all"
+          >
+            <RotateCcw size={24} />
+          </button>
+        </div>
+
+        <div className="pt-4 border-t border-gray-100 w-full text-center">
+          <p className="text-gray-500 text-sm">
+            Sessions completed: <span className="font-bold text-gray-800">{completedPomodoros}</span>
+          </p>
+        </div>
       </div>
-
-      <Text className="text-center text-sm">
-        {isLongBreak ? 'Long Break' : 'Break'}
-      </Text>
-
-      <Text className="text-center text-sm mt-2">
-        Pomodoros Completed: {completedPomodoros}
-      </Text>
     </div>
   );
 };

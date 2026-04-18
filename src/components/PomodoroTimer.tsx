@@ -7,7 +7,7 @@ const PomodoroTimer = () => {
   const [completedPomodoros, setCompletedPomodoros] = useState(0);
   const [mode, setMode] = useState<'work' | 'shortBreak' | 'longBreak'>('work');
   
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<any>(null);
 
   useEffect(() => {
     if (isRunning && timeLeft > 0) {

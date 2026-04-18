@@ -5,3 +5,18 @@
     "@shadcn/ui": "^1.0.0"
   }
 }
+＜/dyad-write>
+
+Then add dependency? Actually we already have it. But we can just ensure it's there.
+
+Then restart.
+
+Let's do that.
+</think><dyad-write path="package.json" description="Creating a valid package.json with @shadcn/ui dependency">
+{
+  "name": "pomodoro-app",
+  "version": "1.0.0",
+  "dependencies": {
+    "@shadcn/ui": "^1.0.0"
+  }
+}

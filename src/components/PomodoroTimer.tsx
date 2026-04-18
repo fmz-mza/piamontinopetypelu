@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Square, RotateCcw, Clock } from 'lucide-react';
+import { Play, Pause, RotateCcw, Coffee, Brain, Battery } from 'lucide-react';
 
 const PomodoroTimer = () => {
   const [timeLeft, setTimeLeft] = useState(25 * 60);
@@ -8,6 +8,8 @@ const PomodoroTimer = () => {
   const [mode, setMode] = useState<'work' | 'shortBreak' | 'longBreak'>('work');
   
   const timerRef = useRef<any>(null);
+  const totalTime = mode === 'work' ? 25 * 60 : mode === 'shortBreak' ? 5 * 60 : 15 * 60;
+  const progress = ((totalTime - timeLeft) / totalTime) * 100;
 
   useEffect(() => {
     if (isRunning && timeLeft > 0) {
@@ -17,26 +19,16 @@ const PomodoroTimer = () => {
     } else if (timeLeft === 0) {
       handleTimerComplete();
     }
-
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [isRunning, timeLeft]);
 
   const handleTimerComplete = () => {
     setIsRunning(false);
-    if (timerRef.current) clearInterval(timerRef.current);
-
     if (mode === 'work') {
       const newCount = completedPomodoros + 1;
       setCompletedPomodoros(newCount);
-      if (newCount % 4 === 0) {
-        setMode('longBreak');
-        setTimeLeft(15 * 60);
-      } else {
-        setMode('shortBreak');
-        setTimeLeft(5 * 60);
-      }
+      if (newCount % 4 === 0) { setMode('longBreak'); setTimeLeft(15 * 60); }
+      else { setMode('shortBreak'); setTimeLeft(5 * 60); }
     } else {
       setMode('work');
       setTimeLeft(25 * 60);
@@ -44,13 +36,10 @@ const PomodoroTimer = () => {
   };
 
   const toggleTimer = () => setIsRunning(!isRunning);
-
   const resetTimer = () => {
     setIsRunning(false);
-    if (timerRef.current) clearInterval(timerRef.current);
     setMode('work');
     setTimeLeft(25 * 60);
-    setCompletedPomodoros(0);
   };
 
   const formatTime = (seconds: number) => {
@@ -59,42 +48,74 @@ const PomodoroTimer = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const theme = {
+    work: "from-rose-500 to-orange-500",
+    shortBreak: "from-emerald-400 to-teal-500",
+    longBreak: "from-blue-500 to-indigo-600"
+  };
+
   return (
-    <div className="p-8 max-w-md w-full bg-white rounded-2xl shadow-xl border border-gray-100">
-      <div className="flex flex-col items-center space-y-6">
-        <div className="flex items-center space-x-2 text-gray-500 font-medium uppercase tracking-wider text-sm">
-          <Clock size={18} />
-          <span>{mode === 'work' ? 'Focus Session' : mode === 'shortBreak' ? 'Short Break' : 'Long Break'}</span>
+    <div className={`p-1 rounded-3xl bg-gradient-to-br ${theme[mode]} shadow-2xl transition-all duration-700`}>
+      <div className="bg-white/90 backdrop-blur-xl p-8 rounded-[1.4rem] w-80 flex flex-col items-center space-y-8">
+        
+        {/* Mode Selector */}
+        <div className="flex bg-gray-100 p-1 rounded-xl w-full">
+          {(['work', 'shortBreak', 'longBreak'] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => { setMode(m); setTimeLeft(m === 'work' ? 25 * 60 : m === 'shortBreak' ? 5 * 60 : 15 * 60); setIsRunning(false); }}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${mode === m ? 'bg-white shadow-sm text-gray-800' : 'text-gray-400 hover:text-gray-600'}`}
+            >
+              {m === 'work' ? 'Focus' : m === 'shortBreak' ? 'Short' : 'Long'}
+            </button>
+          ))}
         </div>
 
-        <div className="text-7xl font-bold text-gray-800 tabular-nums">
-          {formatTime(timeLeft)}
+        {/* Timer Circle */}
+        <div className="relative flex items-center justify-center">
+          <svg className="w-48 h-48 transform -rotate-90">
+            <circle cx="96" cy="96" r="88" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-gray-100" />
+            <circle
+              cx="96" cy="96" r="88" stroke="currentColor" strokeWidth="8" fill="transparent"
+              strokeDasharray={553}
+              strokeDashoffset={553 - (553 * progress) / 100}
+              strokeLinecap="round"
+              className={`transition-all duration-1000 ${mode === 'work' ? 'text-rose-500' : mode === 'shortBreak' ? 'text-emerald-500' : 'text-blue-500'}`}
+            />
+          </svg>
+          <div className="absolute flex flex-col items-center">
+            <span className="text-5xl font-black text-gray-800 tabular-nums tracking-tight">
+              {formatTime(timeLeft)}
+            </span>
+            <div className="flex items-center mt-1 text-gray-400">
+              {mode === 'work' ? <Brain size={14} /> : mode === 'shortBreak' ? <Coffee size={14} /> : <Battery size={14} />}
+              <span className="text-[10px] uppercase font-bold ml-1 tracking-widest">
+                {mode === 'work' ? 'Focusing' : 'Resting'}
+              </span>
+            </div>
+          </div>
         </div>
 
-        <div className="flex space-x-4">
+        {/* Controls */}
+        <div className="flex items-center space-x-6">
+          <button onClick={resetTimer} className="p-3 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
+            <RotateCcw size={20} />
+          </button>
+          
           <button
             onClick={toggleTimer}
-            className={`flex items-center justify-center w-16 h-16 rounded-full transition-all ${
+            className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all transform active:scale-95 shadow-lg ${
               isRunning 
-                ? 'bg-amber-100 text-amber-600 hover:bg-amber-200' 
-                : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-200'
+                ? 'bg-gray-800 text-white hover:bg-gray-900' 
+                : `bg-gradient-to-br ${theme[mode]} text-white hover:opacity-90 shadow-xl`
             }`}
           >
-            {isRunning ? <Square fill="currentColor" size={24} /> : <Play fill="currentColor" size={24} className="ml-1" />}
+            {isRunning ? <Pause fill="currentColor" size={28} /> : <Play fill="currentColor" size={28} className="ml-1" />}
           </button>
 
-          <button
-            onClick={resetTimer}
-            className="flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all"
-          >
-            <RotateCcw size={24} />
-          </button>
-        </div>
-
-        <div className="pt-4 border-t border-gray-100 w-full text-center">
-          <p className="text-gray-500 text-sm">
-            Sessions completed: <span className="font-bold text-gray-800">{completedPomodoros}</span>
-          </p>
+          <div className="w-10 h-10 flex items-center justify-center bg-gray-50 rounded-full border border-gray-100">
+            <span className="text-xs font-bold text-gray-600">{completedPomodoros}</span>
+          </div>
         </div>
       </div>
     </div>

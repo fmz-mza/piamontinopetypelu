@@ -37,7 +37,7 @@ const Products = () => {
             <h2 className="text-4xl font-black text-slate-900 mb-4">Nuestra Tienda</h2>
             <p className="text-slate-500">Los favoritos de la comunidad para este mes.</p>
           </div>
-          <button className="text-orange-500 font-bold flex items-center hover:underline">
+          <button className="text-pink-500 font-bold flex items-center hover:underline">
             Ver todo el catálogo <ShoppingBag size={20} className="ml-2" />
           </button>
         </div>
@@ -54,12 +54,12 @@ const Products = () => {
               <div className="flex justify-between items-start">
                 <div>
                   <h4 className="font-bold text-slate-800 mb-1">{p.name}</h4>
-                  <div className="flex text-orange-400 mb-2">
+                  <div className="flex text-pink-400 mb-2">
                     {[...Array(5)].map((_, i) => <Star key={i} size={12} fill="currentColor" />)}
                   </div>
-                  <p className="text-xl font-black text-orange-500">{p.price}</p>
+                  <p className="text-xl font-black text-pink-500">{p.price}</p>
                 </div>
-                <button className="bg-slate-900 text-white p-3 rounded-xl hover:bg-orange-500 transition-colors shadow-lg">
+                <button className="bg-slate-900 text-white p-3 rounded-xl hover:bg-pink-500 transition-colors shadow-lg">
                   <ShoppingBag size={20} />
                 </button>
               </div>

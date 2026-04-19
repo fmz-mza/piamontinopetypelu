@@ -17,7 +17,7 @@ const Hero = () => {
             className="flex-1 text-center lg:text-left"
           >
             <div className="inline-flex items-center space-x-2 bg-white border border-slate-100 px-4 py-2 rounded-full mb-8 shadow-sm max-w-full">
-              <Scissors size={14} className="text-amber-600 shrink-0" />
+              <Scissors size={14} className="text-pink-500 shrink-0" />
               <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.1em] sm:tracking-[0.2em] text-slate-400 leading-tight">
                 Petshop • Peluquería • Limpieza
               </span>
@@ -25,7 +25,7 @@ const Hero = () => {
             
             <h1 className="text-5xl sm:text-6xl lg:text-8xl font-black text-slate-900 leading-[0.95] mb-8 tracking-tighter">
               Cuidado con <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-600 to-orange-500">alma y estilo.</span>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-pink-400">alma y estilo.</span>
             </h1>
             
             <p className="text-lg sm:text-xl text-slate-500 mb-12 max-w-xl mx-auto lg:mx-0 leading-relaxed font-medium">
@@ -37,7 +37,7 @@ const Hero = () => {
                 <span className="relative z-10 flex items-center justify-center">
                   Ver Servicios <ArrowRight className="ml-3 group-hover:translate-x-2 transition-transform" />
                 </span>
-                <div className="absolute inset-0 bg-amber-600 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                <div className="absolute inset-0 bg-pink-600 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
               </button>
               
               <div className="flex items-center space-x-4">
@@ -66,7 +66,7 @@ const Hero = () => {
               </div>
               
               <div className="absolute -bottom-6 -left-6 sm:-bottom-10 sm:-left-10 bg-white/90 backdrop-blur-xl p-4 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] shadow-2xl z-20 border border-white flex items-center space-x-3 sm:space-x-5 animate-bounce-slow">
-                <div className="bg-amber-500 p-3 sm:p-4 rounded-xl sm:rounded-2xl text-white shadow-lg shadow-amber-100">
+                <div className="bg-pink-500 p-3 sm:p-4 rounded-xl sm:rounded-2xl text-white shadow-lg shadow-pink-100">
                   <Star size={20} className="sm:w-7 sm:h-7" fill="currentColor" />
                 </div>
                 <div>

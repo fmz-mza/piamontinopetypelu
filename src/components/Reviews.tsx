@@ -32,7 +32,7 @@ const Reviews = () => {
         <div className="flex flex-col items-center text-center mb-16">
           <div className="flex items-center space-x-2 mb-4">
             <div className="bg-white p-1.5 rounded-lg shadow-sm border border-slate-100">
-              <MapPin size={18} className="text-blue-500" />
+              <MapPin size={18} className="text-pink-500" />
             </div>
             <span className="text-sm font-bold text-slate-500 uppercase tracking-widest">Reseñas en Google</span>
           </div>
@@ -54,7 +54,7 @@ const Reviews = () => {
                   <div>
                     <h4 className="font-bold text-slate-900 flex items-center">
                       {r.name}
-                      <CheckCircle2 size={14} className="ml-1 text-blue-500" />
+                      <CheckCircle2 size={14} className="ml-1 text-pink-500" />
                     </h4>
                     <p className="text-xs text-slate-400">{r.time}</p>
                   </div>
@@ -74,7 +74,7 @@ const Reviews = () => {
         </div>
         
         <div className="mt-12 text-center">
-          <button className="text-blue-600 font-bold hover:underline flex items-center mx-auto">
+          <button className="text-pink-500 font-bold hover:underline flex items-center mx-auto">
             Ver todas las reseñas en Google Maps
           </button>
         </div>

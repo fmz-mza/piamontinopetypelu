@@ -18,7 +18,7 @@ const Footer = () => {
               />
             </a>
             <p className="text-slate-400 max-w-sm leading-relaxed">
-              Peluquería canina de autor y boutique exclusiva. Cuidamos a tu mascota como si fuera nuestra, con productos de primera línea y mucho amor.
+              Peluquería de alta gama y petshop especializado, con más de 15 años de experiencia. Cuidamos a tu mascota como si fuera nuestra, con productos de primera línea y mucho amor, TE ESPERAMOS!!
             </p>
           </div>
           

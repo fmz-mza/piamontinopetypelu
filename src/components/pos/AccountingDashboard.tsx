@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
-import { DollarSign, TrendingUp, TrendingDown, Users, Plus, X, AlertCircle, CreditCard, Eye, Package, Trash2 } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, Users, Plus, X, AlertCircle, CreditCard, Eye, Package, Trash2, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 interface Sale {
   id: string;
@@ -69,6 +71,38 @@ const AccountingDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const generatePDF = () => {
+    const doc = new jsPDF();
+    const today = new Date().toLocaleDateString();
+    
+    doc.setFontSize(20);
+    doc.text('Reporte de Ventas - Piamontino', 14, 22);
+    doc.setFontSize(10);
+    doc.text(`Fecha de generación: ${today}`, 14, 30);
+
+    const tableData = sales.map(sale => [
+      new Date(sale.created_at).toLocaleDateString(),
+      sale.payment_method.toUpperCase(),
+      `$${sale.total.toFixed(2)}`
+    ]);
+
+    (doc as any).autoTable({
+      startY: 40,
+      head: [['Fecha', 'Método', 'Total']],
+      body: tableData,
+      theme: 'striped',
+      headStyles: { fillColor: [236, 72, 153] }
+    });
+
+    const total = sales.reduce((sum, s) => sum + s.total, 0);
+    const finalY = (doc as any).lastAutoTable.finalY || 40;
+    doc.setFontSize(12);
+    doc.text(`Total Acumulado: $${total.toFixed(2)}`, 14, finalY + 10);
+
+    doc.save(`reporte-ventas-${today}.pdf`);
+    toast.success('PDF generado correctamente');
   };
 
   const handleAddExpense = async () => {
@@ -206,24 +240,33 @@ const AccountingDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-2 border-b border-slate-200 pb-4">
-        {[
-          { id: 'resumen', label: 'Resumen' },
-          { id: 'gastos', label: 'Gastos' },
-          { id: 'clientes', label: 'Cuentas Corrientes' }
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-              activeTab === tab.id
-                ? 'bg-pink-500 text-white'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+        <div className="flex gap-2">
+          {[
+            { id: 'resumen', label: 'Resumen' },
+            { id: 'gastos', label: 'Gastos' },
+            { id: 'clientes', label: 'Cuentas Corrientes' }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                activeTab === tab.id
+                  ? 'bg-pink-500 text-white'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={generatePDF}
+          className="px-4 py-2 bg-slate-800 text-white rounded-lg font-medium text-sm hover:bg-slate-900 transition-colors flex items-center justify-center gap-2"
+        >
+          <FileText size={18} />
+          Exportar PDF
+        </button>
       </div>
 
       {loading ? (

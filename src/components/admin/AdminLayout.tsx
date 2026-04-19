@@ -2,12 +2,13 @@
 
 import React, { useState } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
-import { Home, Package, Menu, X, MessageSquare, Scissors } from 'lucide-react';
+import { Home, Package, Menu, X, MessageSquare, Scissors, Calendar } from 'lucide-react';
 
 const tabs = [
   { id: 'inicio', label: 'Inicio', icon: Home, path: '/admin' },
   { id: 'catalogo', label: 'Catálogo', icon: Package, path: '/admin/catalogo' },
   { id: 'servicios', label: 'Servicios', icon: Scissors, path: '/admin/servicios' },
+  { id: 'turnos', label: 'Turnos', icon: Calendar, path: '/admin/turnos' },
   { id: 'resenas', label: 'Reseñas', icon: MessageSquare, path: '/admin/resenas' },
 ];
 
@@ -18,6 +19,7 @@ const AdminLayout: React.FC = () => {
   const currentTab = 
     location.pathname === '/admin/catalogo' ? 'catalogo' : 
     location.pathname === '/admin/servicios' ? 'servicios' :
+    location.pathname === '/admin/turnos' ? 'turnos' :
     location.pathname === '/admin/resenas' ? 'resenas' : 'inicio';
 
   return (

@@ -17,6 +17,7 @@ import LandingEditor from './components/admin/LandingEditor';
 import ProductManager from './components/admin/ProductManager';
 import ReviewManager from './components/admin/ReviewManager';
 import ServiceManager from './components/admin/ServiceManager';
+import AppointmentManager from './components/admin/AppointmentManager';
 
 // POS Components
 import POSLayout from './components/pos/POSLayout';
@@ -53,6 +54,7 @@ function App() {
           <Route index element={<LandingEditor />} />
           <Route path="catalogo" element={<ProductManager />} />
           <Route path="servicios" element={<ServiceManager />} />
+          <Route path="turnos" element={<AppointmentManager />} />
           <Route path="resenas" element={<ReviewManager />} />
         </Route>
         

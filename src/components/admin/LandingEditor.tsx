@@ -19,6 +19,8 @@ const defaultContent: LandingContent[] = [
   { section: 'services', key: 'subtitle', value: 'Diseñamos experiencias únicas para que la convivencia con tu mascota sea perfecta.' },
   { section: 'products', key: 'title', value: 'Nuestra Tienda' },
   { section: 'products', key: 'subtitle', value: 'Los favoritos de la comunidad para este mes.' },
+  { section: 'about', key: 'title', value: 'Pasión por lo que hacemos.' },
+  { section: 'about', key: 'description', value: 'En Piamontino, entendemos que tu mascota es parte de tu familia. Por eso, dedicamos cada día a brindar un servicio de excelencia, combinando nuestra experiencia en peluquería canina con una selección premium de productos para su bienestar y el cuidado de tu hogar.' },
 ];
 
 const LandingEditor: React.FC = () => {
@@ -110,9 +112,7 @@ const LandingEditor: React.FC = () => {
     );
   }
 
-  const heroContent = content.filter(c => c.section === 'hero');
-  const servicesContent = content.filter(c => c.section === 'services');
-  const productsContent = content.filter(c => c.section === 'products');
+  const sections = ['hero', 'services', 'products', 'about'];
 
   return (
     <div className="space-y-6">
@@ -147,101 +147,42 @@ const LandingEditor: React.FC = () => {
         </div>
       ) : (
         <div className="grid gap-6">
-          {/* Hero Section */}
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-            <h2 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-              <span className="w-2 h-2 bg-pink-500 rounded-full" />
-              Sección Hero
-            </h2>
-            <div className="space-y-4">
-              {heroContent.map(item => (
-                <div key={`${item.section}-${item.key}`}>
-                  <label className="block text-sm font-medium text-slate-600 mb-1.5 capitalize">
-                    {item.key.replace('_', ' ')}
-                  </label>
-                  {item.key === 'subtitle' ? (
-                    <textarea
-                      value={item.value}
-                      onChange={(e) => handleChange(item.section, item.key, e.target.value)}
-                      rows={3}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-100 outline-none transition-all resize-none"
-                    />
-                  ) : (
-                    <input
-                      type="text"
-                      value={item.value}
-                      onChange={(e) => handleChange(item.section, item.key, e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-100 outline-none transition-all"
-                    />
-                  )}
-                </div>
-              ))}
+          {sections.map(section => (
+            <div key={section} className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+              <h2 className="font-bold text-slate-800 mb-4 flex items-center gap-2 capitalize">
+                <span className={`w-2 h-2 rounded-full ${
+                  section === 'hero' ? 'bg-pink-500' : 
+                  section === 'services' ? 'bg-blue-500' : 
+                  section === 'products' ? 'bg-green-500' : 'bg-amber-500'
+                }`} />
+                Sección {section}
+              </h2>
+              <div className="space-y-4">
+                {content.filter(c => c.section === section).map(item => (
+                  <div key={`${item.section}-${item.key}`}>
+                    <label className="block text-sm font-medium text-slate-600 mb-1.5 capitalize">
+                      {item.key.replace('_', ' ')}
+                    </label>
+                    {item.key === 'subtitle' || item.key === 'description' ? (
+                      <textarea
+                        value={item.value}
+                        onChange={(e) => handleChange(item.section, item.key, e.target.value)}
+                        rows={3}
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-100 outline-none transition-all resize-none"
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        value={item.value}
+                        onChange={(e) => handleChange(item.section, item.key, e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-100 outline-none transition-all"
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-
-          {/* Services Section */}
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-            <h2 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-              <span className="w-2 h-2 bg-blue-500 rounded-full" />
-              Sección Servicios
-            </h2>
-            <div className="space-y-4">
-              {servicesContent.map(item => (
-                <div key={`${item.section}-${item.key}`}>
-                  <label className="block text-sm font-medium text-slate-600 mb-1.5 capitalize">
-                    {item.key.replace('_', ' ')}
-                  </label>
-                  {item.key === 'subtitle' ? (
-                    <textarea
-                      value={item.value}
-                      onChange={(e) => handleChange(item.section, item.key, e.target.value)}
-                      rows={3}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-100 outline-none transition-all resize-none"
-                    />
-                  ) : (
-                    <input
-                      type="text"
-                      value={item.value}
-                      onChange={(e) => handleChange(item.section, item.key, e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-100 outline-none transition-all"
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Products Section */}
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-            <h2 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-              <span className="w-2 h-2 bg-green-500 rounded-full" />
-              Sección Productos
-            </h2>
-            <div className="space-y-4">
-              {productsContent.map(item => (
-                <div key={`${item.section}-${item.key}`}>
-                  <label className="block text-sm font-medium text-slate-600 mb-1.5 capitalize">
-                    {item.key.replace('_', ' ')}
-                  </label>
-                  {item.key === 'subtitle' ? (
-                    <textarea
-                      value={item.value}
-                      onChange={(e) => handleChange(item.section, item.key, e.target.value)}
-                      rows={2}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-100 outline-none transition-all resize-none"
-                    />
-                  ) : (
-                    <input
-                      type="text"
-                      value={item.value}
-                      onChange={(e) => handleChange(item.section, item.key, e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-100 outline-none transition-all"
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
+          ))}
         </div>
       )}
     </div>

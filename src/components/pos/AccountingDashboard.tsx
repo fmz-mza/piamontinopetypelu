@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
-import { DollarSign, TrendingUp, TrendingDown, Users, Plus, X, AlertCircle, CreditCard } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, Users, Plus, X, AlertCircle, CreditCard, Eye, Package } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Sale {
@@ -11,6 +11,7 @@ interface Sale {
   total: number;
   items: any[];
   payment_method: string;
+  customer_id?: string;
 }
 
 interface Expense {
@@ -39,6 +40,7 @@ const AccountingDashboard: React.FC = () => {
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState<Customer | null>(null);
+  const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [newExpense, setNewExpense] = useState({ amount: '', description: '', type: 'variable' as 'fija' | 'variable', category: '' });
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '' });
   const [paymentAmount, setPaymentAmount] = useState('');
@@ -139,9 +141,6 @@ const AccountingDashboard: React.FC = () => {
         .eq('id', showPaymentModal.id);
 
       if (error) throw error;
-
-      // Record as a sale with negative total or special payment record? 
-      // For now, just update balance.
       
       toast.success('Pago registrado');
       setShowPaymentModal(null);
@@ -153,7 +152,6 @@ const AccountingDashboard: React.FC = () => {
     }
   };
 
-  // Calculate totals
   const today = new Date().toISOString().split('T')[0];
   const thisMonth = new Date().toISOString().slice(0, 7);
 
@@ -190,7 +188,6 @@ const AccountingDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Tabs */}
       <div className="flex gap-2 border-b border-slate-200 pb-4">
         {[
           { id: 'resumen', label: 'Resumen' },
@@ -219,7 +216,6 @@ const AccountingDashboard: React.FC = () => {
         <>
           {activeTab === 'resumen' && (
             <div className="space-y-6">
-              {/* Summary Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-white p-5 rounded-2xl border border-slate-200">
                   <div className="flex items-center gap-3 mb-2">
@@ -264,14 +260,13 @@ const AccountingDashboard: React.FC = () => {
                 </div>
               </div>
 
-              {/* Recent Sales */}
               <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
                 <div className="p-4 border-b">
                   <h3 className="font-bold text-slate-800">Últimas Ventas</h3>
                 </div>
                 <div className="divide-y divide-slate-100">
                   {sales.slice(0, 10).map(sale => (
-                    <div key={sale.id} className="p-4 flex items-center justify-between">
+                    <div key={sale.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
                       <div>
                         <p className="font-medium text-slate-800">
                           {new Date(sale.created_at).toLocaleDateString('es-AR', {
@@ -285,7 +280,15 @@ const AccountingDashboard: React.FC = () => {
                           {sale.payment_method === 'efectivo' ? 'Efectivo' : sale.payment_method === 'tarjeta' ? 'Tarjeta' : 'Cta. Cte.'} • {sale.items.length} items
                         </p>
                       </div>
-                      <p className="font-bold text-pink-500">${sale.total.toFixed(2)}</p>
+                      <div className="flex items-center gap-4">
+                        <p className="font-bold text-pink-500">${sale.total.toFixed(2)}</p>
+                        <button 
+                          onClick={() => setSelectedSale(sale)}
+                          className="p-2 text-slate-400 hover:text-pink-500 hover:bg-pink-50 rounded-lg transition-all"
+                        >
+                          <Eye size={18} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                   {sales.length === 0 && (
@@ -387,6 +390,60 @@ const AccountingDashboard: React.FC = () => {
         </>
       )}
 
+      {/* Sale Details Modal */}
+      {selectedSale && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="font-bold text-slate-800">Detalle de Venta</h3>
+              <button onClick={() => setSelectedSale(null)} className="p-2 hover:bg-slate-100 rounded-lg">
+                <X size={20} className="text-slate-600" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div className="flex justify-between text-sm text-slate-500">
+                <span>ID: {selectedSale.id.slice(0, 8)}</span>
+                <span>{new Date(selectedSale.created_at).toLocaleString('es-AR')}</span>
+              </div>
+              <div className="space-y-2">
+                {selectedSale.items.map((item: any, i: number) => (
+                  <div key={i} className="flex justify-between items-center py-2 border-b border-slate-50 last:border-0">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-slate-100 rounded flex items-center justify-center text-slate-400">
+                        <Package size={14} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-slate-800">{item.name}</p>
+                        <p className="text-xs text-slate-500">{item.quantity} x ${item.price.toFixed(2)}</p>
+                      </div>
+                    </div>
+                    <p className="text-sm font-bold text-slate-800">${(item.quantity * item.price).toFixed(2)}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="pt-4 border-t space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Método de Pago</span>
+                  <span className="font-medium capitalize">{selectedSale.payment_method.replace('_', ' ')}</span>
+                </div>
+                <div className="flex justify-between text-lg font-black">
+                  <span>Total</span>
+                  <span className="text-pink-500">${selectedSale.total.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+            <div className="p-4 border-t">
+              <button
+                onClick={() => setSelectedSale(null)}
+                className="w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-colors"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Expense Modal */}
       {showExpenseModal && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
@@ -397,7 +454,6 @@ const AccountingDashboard: React.FC = () => {
                 <X size={20} className="text-slate-600" />
               </button>
             </div>
-
             <div className="p-4 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-600 mb-1">Monto</label>
@@ -432,7 +488,6 @@ const AccountingDashboard: React.FC = () => {
                 </select>
               </div>
             </div>
-
             <div className="p-4 border-t">
               <button
                 onClick={handleAddExpense}
@@ -455,7 +510,6 @@ const AccountingDashboard: React.FC = () => {
                 <X size={20} className="text-slate-600" />
               </button>
             </div>
-
             <div className="p-4 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-600 mb-1">Nombre *</label>
@@ -478,7 +532,6 @@ const AccountingDashboard: React.FC = () => {
                 />
               </div>
             </div>
-
             <div className="p-4 border-t">
               <button
                 onClick={handleAddCustomer}
@@ -501,7 +554,6 @@ const AccountingDashboard: React.FC = () => {
                 <X size={20} className="text-slate-600" />
               </button>
             </div>
-
             <div className="p-4 space-y-4">
               <div>
                 <p className="text-slate-600 text-sm mb-1">Cliente: <span className="font-bold text-slate-800">{showPaymentModal.name}</span></p>
@@ -520,7 +572,6 @@ const AccountingDashboard: React.FC = () => {
                 />
               </div>
             </div>
-
             <div className="p-4 border-t">
               <button
                 onClick={handleCustomerPayment}

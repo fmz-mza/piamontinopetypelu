@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, RotateCcw, Coffee, Brain, Battery } from 'lucide-react';
+import { Play, Pause, RotateCcw, Coffee, Brain, Battery, Timer } from 'lucide-react';
 
 const PomodoroTimer = () => {
   const [timeLeft, setTimeLeft] = useState(25 * 60);
@@ -70,10 +70,10 @@ const PomodoroTimer = () => {
   };
 
   return (
-    <div className={`p-1.5 rounded-[2.5rem] bg-gradient-to-br ${theme[mode].bg} shadow-2xl transition-all duration-700`}>
-      <div className="bg-white/95 backdrop-blur-2xl p-8 rounded-[2.2rem] w-85 flex flex-col items-center space-y-10">
+    <div className={`p-1.5 rounded-[3rem] bg-gradient-to-br ${theme[mode].bg} shadow-2xl transition-all duration-700`}>
+      <div className="bg-white/95 backdrop-blur-2xl p-8 rounded-[2.8rem] w-85 flex flex-col items-center space-y-8">
         
-        {/* Mode Selector 3D */}
+        {/* Mode Selector */}
         <div className="flex bg-gray-100/80 p-1.5 rounded-2xl w-full gap-1 shadow-inner">
           {(['work', 'shortBreak', 'longBreak'] as const).map((m) => (
             <button
@@ -85,44 +85,51 @@ const PomodoroTimer = () => {
                   : 'text-gray-400 hover:text-gray-600'
               }`}
             >
-              {m === 'work' ? 'Focus' : m === 'short' ? 'Short' : 'Long'}
+              {m === 'work' ? 'Focus' : m === 'shortBreak' ? 'Short' : 'Long'}
             </button>
           ))}
         </div>
 
-        {/* Timer Circle */}
+        {/* Timer Circle with Animation */}
         <div className="relative flex items-center justify-center group">
           <div className="absolute inset-0 bg-gray-50 rounded-full scale-95 blur-xl opacity-50 group-hover:opacity-80 transition-opacity" />
-          <svg className="w-52 h-52 transform -rotate-90 relative z-10">
-            <circle cx="104" cy="104" r="94" stroke="currentColor" strokeWidth="10" fill="transparent" className="text-gray-100" />
+          <svg className="w-64 h-64 transform -rotate-90 relative z-10">
+            <circle cx="128" cy="128" r="118" stroke="currentColor" strokeWidth="12" fill="transparent" className="text-gray-100" />
             <circle
-              cx="104" cy="104" r="94" stroke="currentColor" strokeWidth="10" fill="transparent"
-              strokeDasharray={590}
-              strokeDashoffset={590 - (590 * progress) / 100}
+              cx="128" cy="128" r="118" stroke="currentColor" strokeWidth="12" fill="transparent"
+              strokeDasharray={741}
+              strokeDashoffset={741 - (741 * progress) / 100}
               strokeLinecap="round"
               className={`transition-all duration-1000 ${theme[mode].text}`}
             />
           </svg>
+          
           <div className="absolute flex flex-col items-center z-20">
+            {/* Stopwatch Animation */}
+            <div className={`mb-2 transition-transform duration-500 ${isRunning ? 'animate-bounce' : ''}`}>
+              <Timer size={32} className={`${theme[mode].text} ${isRunning ? 'animate-pulse' : 'opacity-30'}`} />
+            </div>
+            
             <span className="text-6xl font-black text-gray-800 tabular-nums tracking-tighter">
               {formatTime(timeLeft)}
             </span>
-            <div className={`flex items-center mt-2 px-3 py-1 rounded-full bg-gray-50 border border-gray-100 ${theme[mode].text}`}>
+            
+            <div className={`flex items-center mt-3 px-4 py-1.5 rounded-full bg-gray-50 border border-gray-100 ${theme[mode].text} shadow-sm`}>
               {mode === 'work' ? <Brain size={14} /> : mode === 'shortBreak' ? <Coffee size={14} /> : <Battery size={14} />}
-              <span className="text-[10px] uppercase font-black ml-1.5 tracking-widest">
+              <span className="text-[10px] uppercase font-black ml-2 tracking-[0.2em]">
                 {mode === 'work' ? 'Focus' : 'Rest'}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Controls 3D */}
-        <div className="flex items-center space-x-8">
+        {/* Controls 3D - Uniform Size */}
+        <div className="flex items-center justify-center space-x-6 w-full">
           <button 
             onClick={resetTimer} 
-            className="p-4 text-gray-400 hover:text-gray-600 bg-gray-50 rounded-2xl border-b-4 border-gray-200 active:border-b-0 active:translate-y-1 transition-all"
+            className="w-16 h-16 flex items-center justify-center text-gray-400 hover:text-gray-600 bg-gray-50 rounded-2xl border-b-4 border-gray-200 active:border-b-0 active:translate-y-1 transition-all shadow-sm"
           >
-            <RotateCcw size={22} />
+            <RotateCcw size={24} />
           </button>
           
           <button
@@ -132,9 +139,9 @@ const PomodoroTimer = () => {
             {isRunning ? <Pause fill="currentColor" size={32} /> : <Play fill="currentColor" size={32} className="ml-1" />}
           </button>
 
-          <div className="w-14 h-14 flex flex-col items-center justify-center bg-gray-50 rounded-2xl border-b-4 border-gray-200">
-            <span className="text-[10px] font-black text-gray-400 uppercase leading-none mb-1">Done</span>
-            <span className="text-lg font-black text-gray-700 leading-none">{completedPomodoros}</span>
+          <div className="w-16 h-16 flex flex-col items-center justify-center bg-gray-50 rounded-2xl border-b-4 border-gray-200 shadow-sm">
+            <span className="text-[9px] font-black text-gray-400 uppercase leading-none mb-1">Done</span>
+            <span className="text-xl font-black text-gray-700 leading-none">{completedPomodoros}</span>
           </div>
         </div>
       </div>

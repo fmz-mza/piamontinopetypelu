@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Instagram, Facebook, MapPin, Phone } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import logo from '../assets/logo.jpg';
 
 const Footer = () => {
@@ -10,13 +11,13 @@ const Footer = () => {
       <div className="container mx-auto px-6">
         <div className="grid md:grid-cols-4 gap-12 mb-16">
           <div className="col-span-2">
-            <a href="https://fmz-mza.github.io/piamontinopetypelu/" className="inline-block mb-6 bg-white p-3 rounded-3xl">
+            <Link to="/" className="inline-block mb-6 bg-white p-3 rounded-3xl">
               <img 
                 src={logo} 
                 alt="Piamontino Logo" 
                 className="h-28 w-auto object-contain"
               />
-            </a>
+            </Link>
             <p className="text-slate-400 max-w-sm leading-relaxed">
               Peluquería de alta gama y petshop especializado, con más de 15 años de experiencia. Cuidamos a tu mascota como si fuera nuestra, con productos de primera línea y mucho amor, TE ESPERAMOS!!
             </p>

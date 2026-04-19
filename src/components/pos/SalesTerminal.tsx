@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
-import { Plus, Minus, Trash2, Barcode, Search, ShoppingCart, DollarSign, CreditCard, X, AlertCircle } from 'lucide-react';
+import { Plus, Minus, Trash2, Barcode, Search, ShoppingCart, DollarSign, CreditCard, X, AlertCircle, Users } from 'lucide-react';
 import Scanner from '../shared/Scanner';
 import toast from 'react-hot-toast';
 
@@ -16,6 +16,12 @@ interface Product {
   image_url: string;
 }
 
+interface Customer {
+  id: string;
+  name: string;
+  balance: number;
+}
+
 interface CartItem {
   product: Product;
   quantity: number;
@@ -23,18 +29,21 @@ interface CartItem {
 
 const SalesTerminal: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showScanner, setShowScanner] = useState(false);
   const [isConfigured, setIsConfigured] = useState(true);
-  const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'tarjeta'>('efectivo');
+  const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'tarjeta' | 'cuenta_corriente'>('efectivo');
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [showCheckout, setShowCheckout] = useState(false);
 
   useEffect(() => {
     setIsConfigured(isSupabaseConfigured());
     if (isSupabaseConfigured()) {
       fetchProducts();
+      fetchCustomers();
     }
   }, []);
 
@@ -53,6 +62,19 @@ const SalesTerminal: React.FC = () => {
       console.error('Error fetching products:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCustomers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('customers')
+        .select('id, name, balance')
+        .order('name');
+      if (error) throw error;
+      setCustomers(data || []);
+    } catch (err) {
+      console.error('Error fetching customers:', err);
     }
   };
 
@@ -109,6 +131,10 @@ const SalesTerminal: React.FC = () => {
 
   const handleCheckout = async () => {
     if (cart.length === 0) return;
+    if (paymentMethod === 'cuenta_corriente' && !selectedCustomerId) {
+      toast.error('Seleccioná un cliente para cuenta corriente');
+      return;
+    }
 
     try {
       const items = cart.map(item => ({
@@ -118,15 +144,16 @@ const SalesTerminal: React.FC = () => {
         quantity: item.quantity
       }));
 
-      const { error } = await supabase
+      const { error: saleError } = await supabase
         .from('sales')
         .insert([{
           total: cartTotal,
           items,
-          payment_method: paymentMethod
+          payment_method: paymentMethod,
+          customer_id: paymentMethod === 'cuenta_corriente' ? selectedCustomerId : null
         }]);
 
-      if (error) throw error;
+      if (saleError) throw saleError;
 
       // Update stock
       for (const item of cart) {
@@ -137,10 +164,22 @@ const SalesTerminal: React.FC = () => {
           .eq('id', item.product.id);
       }
 
+      // Update customer balance if account charge
+      if (paymentMethod === 'cuenta_corriente') {
+        const customer = customers.find(c => c.id === selectedCustomerId);
+        if (customer) {
+          await supabase
+            .from('customers')
+            .update({ balance: customer.balance + cartTotal })
+            .eq('id', selectedCustomerId);
+        }
+      }
+
       toast.success('Venta registrada correctamente');
       setCart([]);
       setShowCheckout(false);
       fetchProducts();
+      fetchCustomers();
     } catch (err) {
       console.error('Error processing sale:', err);
       toast.error('Error al procesar la venta');
@@ -316,34 +355,63 @@ const SalesTerminal: React.FC = () => {
                 <p className="text-4xl font-black text-slate-800">${cartTotal.toFixed(2)}</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => setPaymentMethod('efectivo')}
-                  className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${
+                  className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${
                     paymentMethod === 'efectivo'
                       ? 'border-pink-500 bg-pink-50'
                       : 'border-slate-200 hover:border-slate-300'
                   }`}
                 >
-                  <DollarSign size={24} className={paymentMethod === 'efectivo' ? 'text-pink-500' : 'text-slate-400'} />
-                  <span className={`font-medium ${paymentMethod === 'efectivo' ? 'text-pink-600' : 'text-slate-600'}`}>
+                  <DollarSign size={20} className={paymentMethod === 'efectivo' ? 'text-pink-500' : 'text-slate-400'} />
+                  <span className={`text-xs font-medium ${paymentMethod === 'efectivo' ? 'text-pink-600' : 'text-slate-600'}`}>
                     Efectivo
                   </span>
                 </button>
                 <button
                   onClick={() => setPaymentMethod('tarjeta')}
-                  className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${
+                  className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${
                     paymentMethod === 'tarjeta'
                       ? 'border-pink-500 bg-pink-50'
                       : 'border-slate-200 hover:border-slate-300'
                   }`}
                 >
-                  <CreditCard size={24} className={paymentMethod === 'tarjeta' ? 'text-pink-500' : 'text-slate-400'} />
-                  <span className={`font-medium ${paymentMethod === 'tarjeta' ? 'text-pink-600' : 'text-slate-600'}`}>
+                  <CreditCard size={20} className={paymentMethod === 'tarjeta' ? 'text-pink-500' : 'text-slate-400'} />
+                  <span className={`text-xs font-medium ${paymentMethod === 'tarjeta' ? 'text-pink-600' : 'text-slate-600'}`}>
                     Tarjeta
                   </span>
                 </button>
+                <button
+                  onClick={() => setPaymentMethod('cuenta_corriente')}
+                  className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${
+                    paymentMethod === 'cuenta_corriente'
+                      ? 'border-pink-500 bg-pink-50'
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <Users size={20} className={paymentMethod === 'cuenta_corriente' ? 'text-pink-500' : 'text-slate-400'} />
+                  <span className={`text-xs font-medium ${paymentMethod === 'cuenta_corriente' ? 'text-pink-600' : 'text-slate-600'}`}>
+                    Cta. Cte.
+                  </span>
+                </button>
               </div>
+
+              {paymentMethod === 'cuenta_corriente' && (
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-slate-600">Seleccionar Cliente</label>
+                  <select
+                    value={selectedCustomerId}
+                    onChange={(e) => setSelectedCustomerId(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-100 outline-none"
+                  >
+                    <option value="">Elegir cliente...</option>
+                    {customers.map(c => (
+                      <option key={c.id} value={c.id}>{c.name} (Saldo: ${c.balance.toFixed(2)})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             <div className="p-4 border-t">

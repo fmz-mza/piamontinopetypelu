@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
-import { DollarSign, TrendingUp, TrendingDown, Users, Plus, X, AlertCircle } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, Users, Plus, X, AlertCircle, CreditCard } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Sale {
@@ -38,8 +38,10 @@ const AccountingDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'resumen' | 'gastos' | 'clientes'>('resumen');
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState<Customer | null>(null);
   const [newExpense, setNewExpense] = useState({ amount: '', description: '', type: 'variable' as 'fija' | 'variable', category: '' });
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '' });
+  const [paymentAmount, setPaymentAmount] = useState('');
 
   useEffect(() => {
     setIsConfigured(isSupabaseConfigured());
@@ -118,6 +120,36 @@ const AccountingDashboard: React.FC = () => {
     } catch (err) {
       console.error('Error adding customer:', err);
       toast.error('Error al agregar cliente');
+    }
+  };
+
+  const handleCustomerPayment = async () => {
+    if (!showPaymentModal || !paymentAmount) return;
+    const amount = parseFloat(paymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error('Monto inválido');
+      return;
+    }
+
+    try {
+      const newBalance = showPaymentModal.balance - amount;
+      const { error } = await supabase
+        .from('customers')
+        .update({ balance: newBalance })
+        .eq('id', showPaymentModal.id);
+
+      if (error) throw error;
+
+      // Record as a sale with negative total or special payment record? 
+      // For now, just update balance.
+      
+      toast.success('Pago registrado');
+      setShowPaymentModal(null);
+      setPaymentAmount('');
+      fetchData();
+    } catch (err) {
+      console.error('Error recording payment:', err);
+      toast.error('Error al registrar pago');
     }
   };
 
@@ -250,7 +282,7 @@ const AccountingDashboard: React.FC = () => {
                           })}
                         </p>
                         <p className="text-sm text-slate-500">
-                          {sale.payment_method === 'efectivo' ? 'Efectivo' : 'Tarjeta'} • {sale.items.length} items
+                          {sale.payment_method === 'efectivo' ? 'Efectivo' : sale.payment_method === 'tarjeta' ? 'Tarjeta' : 'Cta. Cte.'} • {sale.items.length} items
                         </p>
                       </div>
                       <p className="font-bold text-pink-500">${sale.total.toFixed(2)}</p>
@@ -329,9 +361,18 @@ const AccountingDashboard: React.FC = () => {
                           <p className="text-sm text-slate-500">{customer.phone || 'Sin teléfono'}</p>
                         </div>
                       </div>
-                      <p className={`font-bold ${customer.balance > 0 ? 'text-amber-500' : 'text-slate-400'}`}>
-                        ${customer.balance.toFixed(2)}
-                      </p>
+                      <div className="flex items-center gap-4">
+                        <p className={`font-bold ${customer.balance > 0 ? 'text-amber-500' : 'text-slate-400'}`}>
+                          ${customer.balance.toFixed(2)}
+                        </p>
+                        <button
+                          onClick={() => setShowPaymentModal(customer)}
+                          className="p-2 text-pink-500 hover:bg-pink-50 rounded-lg transition-colors"
+                          title="Registrar Pago"
+                        >
+                          <CreditCard size={18} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                   {customers.length === 0 && (
@@ -444,6 +485,48 @@ const AccountingDashboard: React.FC = () => {
                 className="w-full py-3 bg-pink-500 text-white rounded-xl font-bold hover:bg-pink-600 transition-colors"
               >
                 Agregar Cliente
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Modal */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="font-bold text-slate-800">Registrar Pago</h3>
+              <button onClick={() => setShowPaymentModal(null)} className="p-2 hover:bg-slate-100 rounded-lg">
+                <X size={20} className="text-slate-600" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              <div>
+                <p className="text-slate-600 text-sm mb-1">Cliente: <span className="font-bold text-slate-800">{showPaymentModal.name}</span></p>
+                <p className="text-slate-600 text-sm">Saldo actual: <span className="font-bold text-amber-500">${showPaymentModal.balance.toFixed(2)}</span></p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">Monto del Pago</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-100 outline-none text-2xl font-bold text-center"
+                  placeholder="0.00"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <div className="p-4 border-t">
+              <button
+                onClick={handleCustomerPayment}
+                className="w-full py-3 bg-pink-500 text-white rounded-xl font-bold hover:bg-pink-600 transition-colors"
+              >
+                Confirmar Pago
               </button>
             </div>
           </div>

@@ -2,18 +2,21 @@
 
 import React, { useState } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
-import { Home, Package, Menu, X } from 'lucide-react';
+import { Home, Package, Menu, X, MessageSquare } from 'lucide-react';
 
 const tabs = [
   { id: 'inicio', label: 'Inicio', icon: Home, path: '/admin' },
   { id: 'catalogo', label: 'Catálogo', icon: Package, path: '/admin/catalogo' },
+  { id: 'resenas', label: 'Reseñas', icon: MessageSquare, path: '/admin/resenas' },
 ];
 
 const AdminLayout: React.FC = () => {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const currentTab = location.pathname === '/admin/catalogo' ? 'catalogo' : 'inicio';
+  const currentTab = 
+    location.pathname === '/admin/catalogo' ? 'catalogo' : 
+    location.pathname === '/admin/resenas' ? 'resenas' : 'inicio';
 
   return (
     <div className="min-h-screen bg-slate-50">

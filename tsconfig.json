@@ -13,7 +13,6 @@
     "outDir": "./dist",
     "isolatedModules": true,
     "resolveJsonModule": true,
-    "allowImportingTsExtensions": true,
     "useDefineForClassFields": true,
     "lib": ["ES2020", "DOM", "DOM.Iterable"]
   },

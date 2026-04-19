@@ -1,11 +1,11 @@
 {
-  "name": "piamontinopetypelu",
-  "version": "1.0.0",
-  "private": true,
-  "homepage": "https://TU_USUARIO.github.io/piamontinopetypelu",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  }
-}
+     "name": "piamontinopetypelu",
+     "version": "1.0.0",
+     "private": true,
+     "homepage": "https://TU_USUARIO.github.io/piamontinopetypelu",
+     "scripts": {
+       "dev": "vite",
+       "build": "vite build",
+       "preview": "vite preview"
+     }
+   }

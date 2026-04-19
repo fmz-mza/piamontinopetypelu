@@ -23,7 +23,7 @@ const Footer = () => {
             <ul className="space-y-4 text-slate-400 text-sm">
               <li className="flex items-center space-x-3">
                 <MapPin size={18} className="text-amber-600" />
-                <span>Buenos Aires, Argentina</span>
+                <span>Tandil 462 Dorrego Mendoza, Argentina</span>
               </li>
               <li className="flex items-center space-x-3">
                 <Phone size={18} className="text-amber-600" />

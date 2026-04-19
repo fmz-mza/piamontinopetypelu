@@ -1,7 +1,8 @@
 {
-  "name": "pomodoro-app",
+  "name": "piamontinopetypelu",
   "version": "1.0.0",
   "private": true,
+  "homepage": "https://TU_USUARIO.github.io/piamontinopetypelu",
   "dependencies": {
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",

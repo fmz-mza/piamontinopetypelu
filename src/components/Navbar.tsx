@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Menu, Instagram } from 'lucide-react';
+import { Menu, Instagram, LayoutDashboard, ShoppingCart } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import logo from '../assets/logo.jpg';
 
 const Navbar = () => {
@@ -20,14 +21,31 @@ const Navbar = () => {
           ? 'bg-white/80 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.05)] border border-white/20' 
           : 'bg-transparent'
       }`}>
-        <div className="flex items-center">
-          <a href="https://fmz-mza.github.io/piamontinopetypelu/" className="flex items-center">
+        <div className="flex items-center space-x-6">
+          <Link to="/" className="flex items-center">
             <img 
               src={logo} 
               alt="Piamontino Logo" 
-              className="h-24 w-auto object-contain mix-blend-multiply transition-transform hover:scale-105"
+              className="h-16 w-auto object-contain mix-blend-multiply transition-transform hover:scale-105"
             />
-          </a>
+          </Link>
+          
+          <div className="hidden lg:flex items-center space-x-4">
+            <Link 
+              to="/admin" 
+              className="flex items-center space-x-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-pink-500 transition-colors"
+            >
+              <LayoutDashboard size={14} />
+              <span>Admin</span>
+            </Link>
+            <Link 
+              to="/pos" 
+              className="flex items-center space-x-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-pink-500 transition-colors"
+            >
+              <ShoppingCart size={14} />
+              <span>POS</span>
+            </Link>
+          </div>
         </div>
         
         <div className="hidden md:flex items-center space-x-10 font-bold text-[11px] uppercase tracking-[0.2em] text-slate-500">

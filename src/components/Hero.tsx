@@ -1,10 +1,60 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, Star, Scissors } from 'lucide-react';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
+
+interface HeroContent {
+  title: string;
+  subtitle: string;
+  cta_text: string;
+}
+
+const defaultContent: HeroContent = {
+  title: 'Cuidado con alma y estilo.',
+  subtitle: 'Tu mascota feliz, tu casa radiante. En Piamontino encontrás el equilibrio perfecto: nutrición, accesorios y peluquería de primer nivel, junto a una selección exclusiva de artículos de limpieza.',
+  cta_text: 'Ver Servicios'
+};
 
 const Hero = () => {
+  const [content, setContent] = useState<HeroContent>(defaultContent);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isSupabaseConfigured()) {
+      fetchContent();
+    }
+  }, []);
+
+  const fetchContent = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('landing_content')
+        .select('key, value')
+        .eq('section', 'hero');
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const contentMap: Record<string, string> = {};
+        data.forEach(item => {
+          contentMap[item.key] = item.value;
+        });
+        setContent({
+          title: contentMap.title || defaultContent.title,
+          subtitle: contentMap.subtitle || defaultContent.subtitle,
+          cta_text: contentMap.cta_text || defaultContent.cta_text
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching hero content:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <section className="relative min-h-screen flex items-center pt-32 lg:pt-20 overflow-hidden bg-[#fafafa]">
       <div className="absolute top-0 right-0 w-1/2 h-full bg-amber-50/50 -skew-x-12 translate-x-20 z-0" />
@@ -24,18 +74,21 @@ const Hero = () => {
             </div>
             
             <h1 className="text-5xl sm:text-6xl lg:text-8xl font-black text-slate-900 leading-[0.95] mb-8 tracking-tighter">
-              Cuidado con <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-pink-400">alma y estilo.</span>
+              {content.title.split(' ').map((word, i) => (
+                <span key={i} className={i === content.title.split(' ').length - 1 ? 'text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-pink-400' : ''}>
+                  {word}{' '}
+                </span>
+              ))}
             </h1>
             
             <p className="text-lg sm:text-xl text-slate-500 mb-12 max-w-xl mx-auto lg:mx-0 leading-relaxed font-medium">
-              Tu mascota feliz, tu casa radiante. En Piamontino encontrás el equilibrio perfecto: nutrición, accesorios y peluquería de primer nivel, junto a una selección exclusiva de artículos de limpieza.
+              {content.subtitle}
             </p>
             
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-6">
               <button className="w-full sm:w-auto group relative px-10 py-5 bg-slate-900 text-white rounded-[2rem] font-bold text-lg overflow-hidden transition-all hover:scale-105 active:scale-95 shadow-2xl shadow-slate-200">
                 <span className="relative z-10 flex items-center justify-center">
-                  Ver Servicios <ArrowRight className="ml-3 group-hover:translate-x-2 transition-transform" />
+                  {content.cta_text} <ArrowRight className="ml-3 group-hover:translate-x-2 transition-transform" />
                 </span>
                 <div className="absolute inset-0 bg-pink-600 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
               </button>

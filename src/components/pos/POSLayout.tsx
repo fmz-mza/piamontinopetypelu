@@ -1,12 +1,8 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { ShoppingCart, Package, DollarSign, Menu, X, Barcode } from 'lucide-react';
-
-interface POSLayoutProps {
-  children: React.ReactNode;
-}
+import { Link, useLocation, Outlet } from 'react-router-dom';
+import { ShoppingCart, Package, DollarSign, Menu, X } from 'lucide-react';
 
 const tabs = [
   { id: 'ventas', label: 'Ventas', icon: ShoppingCart, path: '/pos' },
@@ -14,7 +10,7 @@ const tabs = [
   { id: 'gestion', label: 'Gestión', icon: DollarSign, path: '/pos/gestion' },
 ];
 
-const POSLayout: React.FC<POSLayoutProps> = ({ children }) => {
+const POSLayout: React.FC = () => {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -97,7 +93,7 @@ const POSLayout: React.FC<POSLayoutProps> = ({ children }) => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        {children}
+        <Outlet />
       </main>
     </div>
   );

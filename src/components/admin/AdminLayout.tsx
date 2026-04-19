@@ -1,19 +1,15 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Home, Package, Settings, LogOut, Menu, X } from 'lucide-react';
-
-interface AdminLayoutProps {
-  children: React.ReactNode;
-}
+import { Link, useLocation, Outlet } from 'react-router-dom';
+import { Home, Package, Menu, X } from 'lucide-react';
 
 const tabs = [
   { id: 'inicio', label: 'Inicio', icon: Home, path: '/admin' },
   { id: 'catalogo', label: 'Catálogo', icon: Package, path: '/admin/catalogo' },
 ];
 
-const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
+const AdminLayout: React.FC = () => {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -95,7 +91,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        {children}
+        <Outlet />
       </main>
     </div>
   );

@@ -21,11 +21,11 @@ const Navbar = () => {
           : 'bg-transparent'
       }`}>
         <div className="flex items-center">
-          <a href="/" className="flex items-center">
+          <a href="https://fmz-mza.github.io/piamontinopetypelu/" className="flex items-center">
             <img 
               src={logo} 
               alt="Piamontino Logo" 
-              className="h-20 w-auto object-contain mix-blend-multiply transition-transform hover:scale-105"
+              className="h-24 w-auto object-contain mix-blend-multiply transition-transform hover:scale-105"
             />
           </a>
         </div>

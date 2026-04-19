@@ -10,13 +10,13 @@ const Footer = () => {
       <div className="container mx-auto px-6">
         <div className="grid md:grid-cols-4 gap-12 mb-16">
           <div className="col-span-2">
-            <div className="flex items-center mb-6 bg-white p-3 rounded-3xl inline-block">
+            <a href="https://fmz-mza.github.io/piamontinopetypelu/" className="inline-block mb-6 bg-white p-3 rounded-3xl">
               <img 
                 src={logo} 
                 alt="Piamontino Logo" 
-                className="h-24 w-auto object-contain"
+                className="h-28 w-auto object-contain"
               />
-            </div>
+            </a>
             <p className="text-slate-400 max-w-sm leading-relaxed">
               Peluquería canina de autor y boutique exclusiva. Cuidamos a tu mascota como si fuera nuestra, con productos de primera línea y mucho amor.
             </p>

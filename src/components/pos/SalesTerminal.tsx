@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
-import { Plus, Minus, Trash2, Barcode, Search, ShoppingCart, DollarSign, CreditCard, X, AlertCircle, Users } from 'lucide-react';
+import { Plus, Minus, Trash2, Barcode, Search, ShoppingCart, DollarSign, CreditCard, X, AlertCircle, Users, Scissors } from 'lucide-react';
 import Scanner from '../shared/Scanner';
 import toast from 'react-hot-toast';
 
@@ -23,9 +23,16 @@ interface Customer {
 }
 
 interface CartItem {
-  product: Product;
+  product: Partial<Product> & { id: string; name: string; price: number };
   quantity: number;
 }
+
+const QUICK_SERVICES = [
+  { id: 'svc_pelu_ch', name: 'Peluquería Chica', price: 15000 },
+  { id: 'svc_pelu_md', name: 'Peluquería Mediana', price: 20000 },
+  { id: 'svc_pelu_gr', name: 'Peluquería Grande', price: 25000 },
+  { id: 'svc_banio', name: 'Baño Higiénico', price: 10000 },
+];
 
 const SalesTerminal: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -88,11 +95,11 @@ const SalesTerminal: React.FC = () => {
     }
   };
 
-  const addToCart = (product: Product) => {
+  const addToCart = (product: Partial<Product> & { id: string; name: string; price: number }) => {
     setCart(prev => {
       const existing = prev.find(item => item.product.id === product.id);
       if (existing) {
-        if (existing.quantity >= product.stock) {
+        if (product.stock !== undefined && existing.quantity >= product.stock) {
           toast.error('Stock insuficiente');
           return prev;
         }
@@ -112,7 +119,7 @@ const SalesTerminal: React.FC = () => {
         if (item.product.id === productId) {
           const newQty = item.quantity + delta;
           if (newQty <= 0) return null;
-          if (newQty > item.product.stock) {
+          if (item.product.stock !== undefined && newQty > item.product.stock) {
             toast.error('Stock insuficiente');
             return item;
           }
@@ -138,7 +145,7 @@ const SalesTerminal: React.FC = () => {
 
     try {
       const items = cart.map(item => ({
-        product_id: item.product.id,
+        product_id: item.product.id.startsWith('svc_') ? null : item.product.id,
         name: item.product.name,
         price: item.product.price,
         quantity: item.quantity
@@ -155,13 +162,15 @@ const SalesTerminal: React.FC = () => {
 
       if (saleError) throw saleError;
 
-      // Update stock
+      // Update stock for physical products only
       for (const item of cart) {
-        const newStock = item.product.stock - item.quantity;
-        await supabase
-          .from('products')
-          .update({ stock: newStock })
-          .eq('id', item.product.id);
+        if (!item.product.id.startsWith('svc_') && item.product.stock !== undefined) {
+          const newStock = item.product.stock - item.quantity;
+          await supabase
+            .from('products')
+            .update({ stock: newStock })
+            .eq('id', item.product.id);
+        }
       }
 
       // Update customer balance if account charge
@@ -231,7 +240,29 @@ const SalesTerminal: React.FC = () => {
           </button>
         </div>
 
+        {/* Quick Services */}
+        <div className="mb-6">
+          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <Scissors size={16} className="text-pink-500" />
+            Servicios Rápidos
+          </h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {QUICK_SERVICES.map(svc => (
+              <button
+                key={svc.id}
+                onClick={() => addToCart(svc)}
+                className="p-3 bg-white border border-slate-200 rounded-xl hover:border-pink-300 hover:bg-pink-50 transition-all text-left group"
+              >
+                <p className="text-xs font-bold text-slate-400 group-hover:text-pink-400 transition-colors">SERVICIO</p>
+                <p className="font-bold text-slate-800 text-sm line-clamp-1">{svc.name}</p>
+                <p className="text-pink-500 font-black">${svc.price.toLocaleString()}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="flex-1 overflow-y-auto">
+          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">Productos</h3>
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <div className="animate-spin w-8 h-8 border-4 border-pink-500 border-t-transparent rounded-full" />

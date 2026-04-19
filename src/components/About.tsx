@@ -1,10 +1,57 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Heart, Shield, Clock, Award } from 'lucide-react';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
+
+interface AboutContent {
+  title: string;
+  description: string;
+}
+
+const defaultContent: AboutContent = {
+  title: 'Pasión por lo que hacemos.',
+  description: 'En Piamontino, entendemos que tu mascota es parte de tu familia. Por eso, dedicamos cada día a brindar un servicio de excelencia, combinando nuestra experiencia en peluquería canina con una selección premium de productos para su bienestar y el cuidado de tu hogar.'
+};
 
 const About = () => {
+  const [content, setContent] = useState<AboutContent>(defaultContent);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isSupabaseConfigured()) {
+      fetchContent();
+    }
+  }, []);
+
+  const fetchContent = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('landing_content')
+        .select('key, value')
+        .eq('section', 'about');
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const contentMap: Record<string, string> = {};
+        data.forEach(item => {
+          contentMap[item.key] = item.value;
+        });
+        setContent({
+          title: contentMap.title || defaultContent.title,
+          description: contentMap.description || defaultContent.description
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching about content:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const stats = [
     { icon: <Clock size={24} />, label: "15+ Años", sub: "De experiencia" },
     { icon: <Heart size={24} />, label: "1000+", sub: "Mascotas felices" },
@@ -30,10 +77,14 @@ const About = () => {
 
           <div className="flex-1">
             <h2 className="text-5xl font-black text-slate-900 mb-8 tracking-tighter">
-              Pasión por lo que <span className="text-pink-500">hacemos.</span>
+              {content.title.split(' ').map((word, i) => (
+                <span key={i} className={word.toLowerCase().includes('hacemos') ? 'text-pink-500' : ''}>
+                  {word}{' '}
+                </span>
+              ))}
             </h2>
             <p className="text-lg text-slate-600 mb-8 leading-relaxed">
-              En Piamontino, entendemos que tu mascota es parte de tu familia. Por eso, dedicamos cada día a brindar un servicio de excelencia, combinando nuestra experiencia en peluquería canina con una selección premium de productos para su bienestar y el cuidado de tu hogar.
+              {content.description}
             </p>
             
             <div className="grid grid-cols-2 gap-6">

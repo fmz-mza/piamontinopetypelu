@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
-import { DollarSign, TrendingUp, TrendingDown, Users, Plus, X, AlertCircle, CreditCard, Eye, Package } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, Users, Plus, X, AlertCircle, CreditCard, Eye, Package, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Sale {
@@ -96,6 +96,24 @@ const AccountingDashboard: React.FC = () => {
     } catch (err) {
       console.error('Error adding expense:', err);
       toast.error('Error al registrar gasto');
+    }
+  };
+
+  const handleDeleteExpense = async (id: string) => {
+    if (!confirm('¿Estás seguro de eliminar este gasto?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('expenses')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      toast.success('Gasto eliminado');
+      fetchData();
+    } catch (err) {
+      console.error('Error deleting expense:', err);
+      toast.error('Error al eliminar gasto');
     }
   };
 
@@ -316,14 +334,22 @@ const AccountingDashboard: React.FC = () => {
               <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
                 <div className="divide-y divide-slate-100">
                   {expenses.map(expense => (
-                    <div key={expense.id} className="p-4 flex items-center justify-between">
+                    <div key={expense.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
                       <div>
                         <p className="font-medium text-slate-800">{expense.description}</p>
                         <p className="text-sm text-slate-500">
                           {new Date(expense.date).toLocaleDateString('es-AR')} • {expense.type === 'fija' ? 'Fija' : 'Variable'}
                         </p>
                       </div>
-                      <p className="font-bold text-red-500">-${expense.amount.toFixed(2)}</p>
+                      <div className="flex items-center gap-4">
+                        <p className="font-bold text-red-500">-${expense.amount.toFixed(2)}</p>
+                        <button
+                          onClick={() => handleDeleteExpense(expense.id)}
+                          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                   {expenses.length === 0 && (

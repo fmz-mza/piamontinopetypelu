@@ -51,7 +51,7 @@ const Footer = () => {
         </div>
         
         <div className="border-t border-slate-800 pt-8 text-center text-slate-500 text-sm">
-          <p>© 2024 Piamontino Pet & Pelu. Todos los derechos reservados.</p>
+          <p>© 2026 Piamontino Pet & Pelu. Todos los derechos reservados.</p>
         </div>
       </div>
     </footer>

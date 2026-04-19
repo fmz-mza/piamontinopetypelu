@@ -340,26 +340,27 @@ const ProductManager: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">
-                    EAN
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={formData.ean}
-                      onChange={(e) => setFormData({ ...formData, ean: e.target.value })}
-                      className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-100 outline-none transition-all font-mono"
-                      placeholder="Código de barras"
-                    />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-sm font-medium text-slate-600">
+                      EAN
+                    </label>
                     <button
                       type="button"
                       onClick={() => setShowScanner(true)}
-                      className="p-3 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-colors"
+                      className="p-1.5 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 transition-colors flex items-center gap-1 text-[10px] font-bold uppercase"
                       title="Escanear código"
                     >
-                      <Camera size={20} />
+                      <Camera size={14} />
+                      <span>Escanear</span>
                     </button>
                   </div>
+                  <input
+                    type="text"
+                    value={formData.ean}
+                    onChange={(e) => setFormData({ ...formData, ean: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-100 outline-none transition-all font-mono"
+                    placeholder="Código de barras"
+                  />
                 </div>
               </div>
 

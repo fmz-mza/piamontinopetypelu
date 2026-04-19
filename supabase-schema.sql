@@ -1,5 +1,5 @@
--- Tabla de Productos
-CREATE TABLE products (
+-- 1. Crear Tabla de Productos
+CREATE TABLE IF NOT EXISTS products (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
   price DECIMAL(12,2) NOT NULL DEFAULT 0,
@@ -12,8 +12,8 @@ CREATE TABLE products (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Tabla de Clientes (Cuentas Corrientes)
-CREATE TABLE customers (
+-- 2. Crear Tabla de Clientes
+CREATE TABLE IF NOT EXISTS customers (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
   phone TEXT,
@@ -21,29 +21,29 @@ CREATE TABLE customers (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Tabla de Ventas
-CREATE TABLE sales (
+-- 3. Crear Tabla de Ventas
+CREATE TABLE IF NOT EXISTS sales (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   created_at TIMESTAMPTZ DEFAULT now(),
   total DECIMAL(12,2) NOT NULL,
   items JSONB NOT NULL,
-  payment_method TEXT NOT NULL, -- 'efectivo', 'tarjeta', 'cuenta_corriente'
+  payment_method TEXT NOT NULL,
   customer_id UUID REFERENCES customers(id)
 );
 
--- Tabla de Gastos
-CREATE TABLE expenses (
+-- 4. Crear Tabla de Gastos
+CREATE TABLE IF NOT EXISTS expenses (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   date DATE DEFAULT CURRENT_DATE,
   amount DECIMAL(12,2) NOT NULL,
   description TEXT NOT NULL,
-  type TEXT NOT NULL, -- 'fija', 'variable'
+  type TEXT NOT NULL,
   category TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Tabla de Contenido de la Landing Page
-CREATE TABLE landing_content (
+-- 5. Crear Tabla de Contenido
+CREATE TABLE IF NOT EXISTS landing_content (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   section TEXT NOT NULL,
   key TEXT NOT NULL,
@@ -52,8 +52,8 @@ CREATE TABLE landing_content (
   UNIQUE(section, key)
 );
 
--- Tabla de Reseñas
-CREATE TABLE reviews (
+-- 6. Crear Tabla de Reseñas
+CREATE TABLE IF NOT EXISTS reviews (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
   time TEXT,
@@ -63,14 +63,16 @@ CREATE TABLE reviews (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Insertar contenido inicial para la landing
-INSERT INTO landing_content (section, key, value) VALUES
-('hero', 'title', 'Cuidado con alma y estilo.'),
-('hero', 'subtitle', 'Tu mascota feliz, tu casa radiante. En Piamontino encontrás el equilibrio perfecto: nutrición, accesorios y peluquería de primer nivel.'),
-('hero', 'cta_text', 'Ver Servicios'),
-('services', 'title', 'Más que una tienda, un estilo de vida.'),
-('services', 'subtitle', 'Diseñamos experiencias únicas para que la convivencia con tu mascota sea perfecta.'),
-('products', 'title', 'Nuestra Tienda'),
-('products', 'subtitle', 'Los favoritos de la comunidad para este mes.'),
-('about', 'title', 'Pasión por lo que hacemos.'),
-('about', 'description', 'En Piamontino, entendemos que tu mascota es parte de tu familia. Por eso, dedicamos cada día a brindar un servicio de excelencia.');
+-- 7. Insertar contenido inicial
+INSERT INTO landing_content (section, key, value) 
+VALUES
+  ('hero', 'title', 'Cuidado con alma y estilo.'),
+  ('hero', 'subtitle', 'Tu mascota feliz, tu casa radiante. En Piamontino encontrás el equilibrio perfecto.'),
+  ('hero', 'cta_text', 'Ver Servicios'),
+  ('services', 'title', 'Más que una tienda, un estilo de vida.'),
+  ('services', 'subtitle', 'Diseñamos experiencias únicas para tu mascota.'),
+  ('products', 'title', 'Nuestra Tienda'),
+  ('products', 'subtitle', 'Los favoritos de la comunidad.'),
+  ('about', 'title', 'Pasión por lo que hacemos.'),
+  ('about', 'description', 'En Piamontino, dedicamos cada día a brindar un servicio de excelencia.')
+ON CONFLICT (section, key) DO NOTHING;

@@ -15,7 +15,7 @@ const Navbar = () => {
 
   return (
     <div className="fixed w-full z-50 px-4 sm:px-8 py-6">
-      <nav className={`mx-auto max-w-7xl transition-all duration-500 rounded-[2rem] px-6 py-4 flex justify-between items-center ${
+      <nav className={`mx-auto max-w-7xl transition-all duration-500 rounded-[2rem] px-6 py-3 flex justify-between items-center ${
         isScrolled 
           ? 'bg-white/80 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.05)] border border-white/20' 
           : 'bg-transparent'
@@ -25,7 +25,7 @@ const Navbar = () => {
             <img 
               src={logo} 
               alt="Piamontino Logo" 
-              className="h-12 w-auto object-contain mix-blend-multiply"
+              className="h-20 w-auto object-contain mix-blend-multiply transition-transform hover:scale-105"
             />
           </a>
         </div>

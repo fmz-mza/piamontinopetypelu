@@ -10,11 +10,11 @@ const Footer = () => {
       <div className="container mx-auto px-6">
         <div className="grid md:grid-cols-4 gap-12 mb-16">
           <div className="col-span-2">
-            <div className="flex items-center mb-6 bg-white p-2 rounded-2xl inline-block">
+            <div className="flex items-center mb-6 bg-white p-3 rounded-3xl inline-block">
               <img 
                 src={logo} 
                 alt="Piamontino Logo" 
-                className="h-10 w-auto object-contain"
+                className="h-24 w-auto object-contain"
               />
             </div>
             <p className="text-slate-400 max-w-sm leading-relaxed">

@@ -1,5 +1,8 @@
+"use client";
+
 import React from 'react';
-import { Dog, Instagram, Facebook, MapPin, Phone } from 'lucide-react';
+import { Instagram, Facebook, MapPin, Phone } from 'lucide-react';
+import logo from '../assets/logo.jpg';
 
 const Footer = () => {
   return (
@@ -7,11 +10,12 @@ const Footer = () => {
       <div className="container mx-auto px-6">
         <div className="grid md:grid-cols-4 gap-12 mb-16">
           <div className="col-span-2">
-            <div className="flex items-center space-x-2 mb-6">
-              <div className="bg-amber-600 p-2 rounded-xl">
-                <Dog className="text-white" size={24} />
-              </div>
-              <span className="text-2xl font-black tracking-tight">PIAMONTINO<span className="text-amber-600">.</span></span>
+            <div className="flex items-center mb-6 bg-white p-2 rounded-2xl inline-block">
+              <img 
+                src={logo} 
+                alt="Piamontino Logo" 
+                className="h-10 w-auto object-contain"
+              />
             </div>
             <p className="text-slate-400 max-w-sm leading-relaxed">
               Peluquería canina de autor y boutique exclusiva. Cuidamos a tu mascota como si fuera nuestra, con productos de primera línea y mucho amor.
@@ -19,21 +23,21 @@ const Footer = () => {
           </div>
           
           <div>
-            <h4 className="font-bold mb-6 uppercase tracking-widest text-sm text-amber-600">Contacto</h4>
+            <h4 className="font-bold mb-6 uppercase tracking-widest text-sm text-pink-500">Contacto</h4>
             <ul className="space-y-4 text-slate-400 text-sm">
               <li className="flex items-center space-x-3">
-                <MapPin size={18} className="text-amber-600" />
+                <MapPin size={18} className="text-pink-500" />
                 <span>Tandil 462 Dorrego Mendoza, Argentina</span>
               </li>
               <li className="flex items-center space-x-3">
-                <Phone size={18} className="text-amber-600" />
+                <Phone size={18} className="text-pink-500" />
                 <span>Solicitá tu turno por WhatsApp</span>
               </li>
             </ul>
           </div>
 
           <div>
-            <h4 className="font-bold mb-6 uppercase tracking-widest text-sm text-amber-600">Comunidad</h4>
+            <h4 className="font-bold mb-6 uppercase tracking-widest text-sm text-pink-500">Comunidad</h4>
             <div className="flex space-x-4">
               <a 
                 href="https://www.instagram.com/piamontinopetypelu" 

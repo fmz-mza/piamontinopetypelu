@@ -2,6 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-gray-50 text-gray-900;
+@layer base {
+  body {
+    @apply bg-[#fafafa] text-slate-900 antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+@keyframes bounce-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-15px); }
+}
+
+.animate-bounce-slow {
+  animation: bounce-slow 4s ease-in-out infinite;
+}
+
+::selection {
+  @apply bg-orange-500 text-white;
+}
+
+/* Smooth Scroll */
+html {
+  scroll-behavior: smooth;
 }

@@ -1,56 +1,62 @@
 import React from 'react';
-import { Scissors, Droplets, Heart, ShieldCheck } from 'lucide-react';
+import { Scissors, Droplets, Heart, Sparkles } from 'lucide-react';
 
 const services = [
   {
-    title: "Peluquería Canina",
-    desc: "Cortes de raza, baños terapéuticos y spa para que luzcan increíbles.",
-    icon: <Scissors size={32} />,
-    color: "bg-blue-500",
-    light: "bg-blue-50"
+    title: "Peluquería Pro",
+    desc: "Estilismo canino de alta gama con productos orgánicos.",
+    icon: <Scissors size={28} />,
+    className: "md:col-span-2 bg-gradient-to-br from-slate-900 to-slate-800 text-white",
+    iconBg: "bg-orange-500"
   },
   {
-    title: "Artículos de Limpieza",
-    desc: "Productos especializados para mantener tu hogar impecable y libre de olores.",
-    icon: <Droplets size={32} />,
-    color: "bg-emerald-500",
-    light: "bg-emerald-50"
+    title: "Hogar Limpio",
+    desc: "Eliminación total de olores y bacterias.",
+    icon: <Droplets size={28} />,
+    className: "bg-white",
+    iconBg: "bg-blue-500"
   },
   {
-    title: "Cuidado Integral",
-    desc: "Asesoramiento personalizado para la salud y bienestar de tu mascota.",
-    icon: <Heart size={32} />,
-    color: "bg-rose-500",
-    light: "bg-rose-50"
+    title: "Bienestar",
+    desc: "Cuidado preventivo y nutrición.",
+    icon: <Heart size={28} />,
+    className: "bg-white",
+    iconBg: "bg-rose-500"
   },
   {
-    title: "Garantía de Calidad",
-    desc: "Solo trabajamos con las mejores marcas del mercado internacional.",
-    icon: <ShieldCheck size={32} />,
-    color: "bg-orange-500",
-    light: "bg-orange-50"
+    title: "Spa Day",
+    desc: "Masajes y aromaterapia para mascotas estresadas.",
+    icon: <Sparkles size={28} />,
+    className: "md:col-span-2 bg-orange-500 text-white",
+    iconBg: "bg-white/20"
   }
 ];
 
 const Services = () => {
   return (
-    <section id="servicios" className="py-24 bg-slate-50">
+    <section id="servicios" className="py-32 bg-white">
       <div className="container mx-auto px-6">
-        <div className="text-center max-w-2xl mx-auto mb-16">
-          <h2 className="text-4xl font-black text-slate-900 mb-4">Servicios Profesionales</h2>
-          <p className="text-slate-500">Nos especializamos en el cuidado estético y la higiene del hogar para dueños de mascotas exigentes.</p>
+        <div className="flex flex-col md:flex-row justify-between items-end mb-20 gap-8">
+          <div className="max-w-xl">
+            <h2 className="text-5xl font-black text-slate-900 mb-6 tracking-tighter">Más que una tienda, <br /><span className="text-orange-500">un estilo de vida.</span></h2>
+            <p className="text-lg text-slate-500 font-medium">Diseñamos experiencias únicas para que la convivencia con tu mascota sea perfecta.</p>
+          </div>
+          <div className="bg-slate-50 p-2 rounded-2xl flex space-x-2">
+            <button className="px-6 py-3 bg-white shadow-sm rounded-xl font-bold text-sm">Nuestros Servicios</button>
+            <button className="px-6 py-3 text-slate-400 font-bold text-sm hover:text-slate-600">Ver Galería</button>
+          </div>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid md:grid-cols-3 gap-6">
           {services.map((s, i) => (
-            <div key={i} className="bg-white p-8 rounded-[2.5rem] shadow-sm hover:shadow-xl transition-all group border border-slate-100">
-              <div className={`${s.light} w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
-                <div className={`text-white p-3 rounded-xl ${s.color}`}>
-                  {s.icon}
-                </div>
+            <div key={i} className={`${s.className} p-10 rounded-[3rem] shadow-sm hover:shadow-2xl transition-all duration-500 group cursor-pointer border border-slate-100/50`}>
+              <div className={`${s.iconBg} w-16 h-16 rounded-2xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform duration-500 shadow-lg`}>
+                <div className="text-white">{s.icon}</div>
               </div>
-              <h3 className="text-xl font-black text-slate-800 mb-3">{s.title}</h3>
-              <p className="text-slate-500 text-sm leading-relaxed">{s.desc}</p>
+              <h3 className="text-2xl font-black mb-4 tracking-tight">{s.title}</h3>
+              <p className={`${s.className.includes('text-white') ? 'text-white/70' : 'text-slate-500'} text-lg leading-relaxed`}>
+                {s.desc}
+              </p>
             </div>
           ))}
         </div>

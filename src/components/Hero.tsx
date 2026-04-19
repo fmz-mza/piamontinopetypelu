@@ -1,6 +1,8 @@
+"use client";
+
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Sparkles, Star, ShieldCheck, Scissors } from 'lucide-react';
+import { ArrowRight, Star, Scissors } from 'lucide-react';
 
 const Hero = () => {
   return (
@@ -16,7 +18,7 @@ const Hero = () => {
           >
             <div className="inline-flex items-center space-x-2 bg-white border border-slate-100 px-5 py-2.5 rounded-full mb-8 shadow-sm">
               <Scissors size={16} className="text-amber-600" />
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Peluquería Canina de Autor</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Petshop, Peluquería, Artículos de Limpieza y Mucho Más</span>
             </div>
             
             <h1 className="text-6xl lg:text-8xl font-black text-slate-900 leading-[0.95] mb-8 tracking-tighter">
@@ -25,7 +27,7 @@ const Hero = () => {
             </h1>
             
             <p className="text-xl text-slate-500 mb-12 max-w-xl mx-auto lg:mx-0 leading-relaxed font-medium">
-              En Piamontino transformamos el momento del baño en una experiencia de bienestar total para tu mejor amigo.
+              Tu mascota feliz, tu casa radiante. En Piamontino encontrás el equilibrio perfecto: nutrición, accesorios y peluquería de primer nivel, junto a una selección exclusiva de artículos de limpieza pensados para el bienestar de tu mascota y la frescura de tu hogar.
             </p>
             
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-6">

@@ -1,24 +1,26 @@
+"use client";
+
 import React from 'react';
 import { Scissors, Droplets, Heart, Sparkles } from 'lucide-react';
 
 const services = [
   {
     title: "Peluquería Pro",
-    desc: "Estilismo canino de alta gama con productos orgánicos.",
+    desc: "Peluquería de alta gama más de 15 años de experiencia",
     icon: <Scissors size={28} />,
     className: "md:col-span-2 bg-gradient-to-br from-slate-900 to-slate-800 text-white",
     iconBg: "bg-orange-500"
   },
   {
     title: "Hogar Limpio",
-    desc: "Eliminación total de olores y bacterias.",
+    desc: "Donde encontrarás artículos de limpieza indispensables para toda tu familia",
     icon: <Droplets size={28} />,
     className: "bg-white",
     iconBg: "bg-blue-500"
   },
   {
     title: "Bienestar",
-    desc: "Cuidado preventivo y nutrición.",
+    desc: "Cuidado preventivo alimentos premium, recetados, fuentes de agua con filtro, pipetas y más...",
     icon: <Heart size={28} />,
     className: "bg-white",
     iconBg: "bg-rose-500"

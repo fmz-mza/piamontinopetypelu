@@ -1,5 +1,5 @@
 import React from 'react';
-import { Star, CheckCircle2 } from 'lucide-react';
+import { Star, CheckCircle2, MapPin } from 'lucide-react';
 
 const reviews = [
   {
@@ -31,20 +31,17 @@ const Reviews = () => {
       <div className="container mx-auto px-6">
         <div className="flex flex-col items-center text-center mb-16">
           <div className="flex items-center space-x-2 mb-4">
-            <img 
-              src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_Maps_icon_%282020%29.svg" 
-              alt="Google Maps" 
-              className="w-6 h-6"
-            />
+            <div className="bg-white p-1.5 rounded-lg shadow-sm border border-slate-100">
+              <MapPin size={18} className="text-blue-500" />
+            </div>
             <span className="text-sm font-bold text-slate-500 uppercase tracking-widest">Reseñas en Google</span>
           </div>
           <h2 className="text-4xl font-black text-slate-900 mb-4">Lo que dicen nuestros clientes</h2>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-3">
             <div className="flex text-amber-400">
-              {[...Array(5)].map((_, i) => <Star key={i} size={20} fill="currentColor" />)}
+              {[...Array(5)].map((_, i) => <Star key={i} size={24} fill="currentColor" />)}
             </div>
-            <span className="font-bold text-slate-700">4.9 / 5.0</span>
-            <span className="text-slate-400">(+150 reseñas)</span>
+            <span className="text-3xl font-black text-slate-900">5.0</span>
           </div>
         </div>
 
@@ -62,11 +59,7 @@ const Reviews = () => {
                     <p className="text-xs text-slate-400">{r.time}</p>
                   </div>
                 </div>
-                <img 
-                  src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" 
-                  alt="Google" 
-                  className="w-5 h-5 opacity-20"
-                />
+                <Star size={18} className="text-slate-200" fill="currentColor" />
               </div>
               
               <div className="flex text-amber-400 mb-4">

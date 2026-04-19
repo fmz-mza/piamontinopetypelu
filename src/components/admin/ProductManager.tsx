@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
-import { Plus, Search, Edit2, Trash2, X, Save, AlertCircle, Package } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, X, Save, AlertCircle, Package, Camera } from 'lucide-react';
+import Scanner from '../shared/Scanner';
 import toast from 'react-hot-toast';
 
 interface Product {
@@ -33,6 +34,7 @@ const ProductManager: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState<Product>(emptyProduct);
   const [isConfigured, setIsConfigured] = useState(true);
@@ -79,6 +81,12 @@ const ProductManager: React.FC = () => {
     setFormData({ ...emptyProduct });
   };
 
+  const handleScan = (code: string) => {
+    setFormData(prev => ({ ...prev, ean: code }));
+    setShowScanner(false);
+    toast.success('Código escaneado');
+  };
+
   const handleSave = async () => {
     if (!formData.name || formData.price < 0) {
       toast.error('Nombre y precio válido son obligatorios');
@@ -88,7 +96,6 @@ const ProductManager: React.FC = () => {
     setLoading(true);
     try {
       if (editingProduct?.id) {
-        // Actualizar producto existente
         const { error } = await supabase
           .from('products')
           .update({
@@ -106,7 +113,6 @@ const ProductManager: React.FC = () => {
         if (error) throw error;
         toast.success('Producto actualizado');
       } else {
-        // Crear nuevo producto (eliminamos el ID si existe para que Supabase lo genere)
         const { id, ...newProductData } = formData;
         const { error } = await supabase
           .from('products')
@@ -337,13 +343,23 @@ const ProductManager: React.FC = () => {
                   <label className="block text-sm font-medium text-slate-600 mb-1">
                     EAN
                   </label>
-                  <input
-                    type="text"
-                    value={formData.ean}
-                    onChange={(e) => setFormData({ ...formData, ean: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-100 outline-none transition-all font-mono"
-                    placeholder="Código de barras"
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={formData.ean}
+                      onChange={(e) => setFormData({ ...formData, ean: e.target.value })}
+                      className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-100 outline-none transition-all font-mono"
+                      placeholder="Código de barras"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowScanner(true)}
+                      className="p-3 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-colors"
+                      title="Escanear código"
+                    >
+                      <Camera size={20} />
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -395,6 +411,13 @@ const ProductManager: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {showScanner && (
+        <Scanner
+          onScan={handleScan}
+          onClose={() => setShowScanner(false)}
+        />
       )}
     </div>
   );

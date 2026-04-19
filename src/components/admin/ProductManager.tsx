@@ -54,9 +54,9 @@ const ProductManager: React.FC = () => {
 
       if (error) throw error;
       setProducts(data || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching products:', err);
-      toast.error('Error al cargar productos');
+      toast.error(`Error al cargar productos: ${err.message || 'Error desconocido'}`);
     } finally {
       setLoading(false);
     }
@@ -65,10 +65,10 @@ const ProductManager: React.FC = () => {
   const handleOpenModal = (product?: Product) => {
     if (product) {
       setEditingProduct(product);
-      setFormData(product);
+      setFormData({ ...product });
     } else {
       setEditingProduct(null);
-      setFormData(emptyProduct);
+      setFormData({ ...emptyProduct });
     }
     setIsModalOpen(true);
   };
@@ -76,21 +76,29 @@ const ProductManager: React.FC = () => {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingProduct(null);
-    setFormData(emptyProduct);
+    setFormData({ ...emptyProduct });
   };
 
   const handleSave = async () => {
-    if (!formData.name || formData.price <= 0) {
-      toast.error('Nombre y precio son obligatorios');
+    if (!formData.name || formData.price < 0) {
+      toast.error('Nombre y precio válido son obligatorios');
       return;
     }
 
+    setLoading(true);
     try {
       if (editingProduct?.id) {
+        // Actualizar producto existente
         const { error } = await supabase
           .from('products')
           .update({
-            ...formData,
+            name: formData.name,
+            price: formData.price,
+            cost: formData.cost,
+            stock: formData.stock,
+            ean: formData.ean,
+            category: formData.category,
+            image_url: formData.image_url,
             updated_at: new Date().toISOString()
           })
           .eq('id', editingProduct.id);
@@ -98,19 +106,23 @@ const ProductManager: React.FC = () => {
         if (error) throw error;
         toast.success('Producto actualizado');
       } else {
+        // Crear nuevo producto (eliminamos el ID si existe para que Supabase lo genere)
+        const { id, ...newProductData } = formData;
         const { error } = await supabase
           .from('products')
-          .insert([formData]);
+          .insert([newProductData]);
 
         if (error) throw error;
         toast.success('Producto creado');
       }
 
-      fetchProducts();
+      await fetchProducts();
       handleCloseModal();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving product:', err);
-      toast.error('Error al guardar producto');
+      toast.error(`Error al guardar: ${err.message || 'Verificá la conexión con Supabase'}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -126,9 +138,9 @@ const ProductManager: React.FC = () => {
       if (error) throw error;
       toast.success('Producto eliminado');
       fetchProducts();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error deleting product:', err);
-      toast.error('Error al eliminar producto');
+      toast.error(`Error al eliminar: ${err.message}`);
     }
   };
 
@@ -170,7 +182,6 @@ const ProductManager: React.FC = () => {
         </button>
       </div>
 
-      {/* Search */}
       <div className="relative">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
         <input
@@ -182,8 +193,7 @@ const ProductManager: React.FC = () => {
         />
       </div>
 
-      {/* Products Grid */}
-      {loading ? (
+      {loading && products.length === 0 ? (
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin w-8 h-8 border-4 border-pink-500 border-t-transparent rounded-full" />
         </div>
@@ -252,7 +262,6 @@ const ProductManager: React.FC = () => {
         </div>
       )}
 
-      {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -377,10 +386,11 @@ const ProductManager: React.FC = () => {
               </button>
               <button
                 onClick={handleSave}
-                className="flex-1 px-4 py-3 bg-pink-500 text-white font-medium hover:bg-pink-600 rounded-xl transition-colors flex items-center justify-center gap-2"
+                disabled={loading}
+                className="flex-1 px-4 py-3 bg-pink-500 text-white font-bold hover:bg-pink-600 rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 <Save size={18} />
-                Guardar
+                {loading ? 'Guardando...' : 'Guardar'}
               </button>
             </div>
           </div>

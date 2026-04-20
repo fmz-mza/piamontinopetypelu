@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Menu, X, Instagram, LayoutDashboard, ShoppingCart, Scissors, ShoppingBag, Users } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import logo from '../assets/logo.jpg';
 import BookingModal from './shared/BookingModal';
 
@@ -10,6 +10,8 @@ const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -17,10 +19,31 @@ const Navbar = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const scrollToSection = (sectionId: string) => {
+    setIsMobileMenuOpen(false);
+    
+    // Si no estamos en la home, primero navegamos a la home
+    if (location.pathname !== '/') {
+      navigate('/');
+      // Esperamos un momento a que cargue la home antes de scrollear
+      setTimeout(() => {
+        const element = document.getElementById(sectionId);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
+    } else {
+      const element = document.getElementById(sectionId);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  };
+
   const navLinks = [
-    { name: 'Peluquería', href: '#servicios', icon: Scissors },
-    { name: 'Boutique', href: '#productos', icon: ShoppingBag },
-    { name: 'Nosotros', href: '#nosotros', icon: Users },
+    { name: 'Peluquería', id: 'servicios', icon: Scissors },
+    { name: 'Boutique', id: 'productos', icon: ShoppingBag },
+    { name: 'Nosotros', id: 'nosotros', icon: Users },
   ];
 
   const adminLinks = [
@@ -63,7 +86,13 @@ const Navbar = () => {
           {/* Desktop Nav Links */}
           <div className="hidden md:flex items-center space-x-10 font-bold text-[11px] uppercase tracking-[0.2em] text-slate-500">
             {navLinks.map((link) => (
-              <a key={link.name} href={link.href} className="hover:text-pink-500 transition-all">{link.name}</a>
+              <button 
+                key={link.name} 
+                onClick={() => scrollToSection(link.id)}
+                className="hover:text-pink-500 transition-all uppercase tracking-[0.2em]"
+              >
+                {link.name}
+              </button>
             ))}
           </div>
 
@@ -113,17 +142,16 @@ const Navbar = () => {
 
               <div className="space-y-2">
                 {navLinks.map((link) => (
-                  <a
+                  <button
                     key={link.name}
-                    href={link.href}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="flex items-center space-x-4 p-4 hover:bg-slate-50 rounded-2xl transition-colors"
+                    onClick={() => scrollToSection(link.id)}
+                    className="w-full flex items-center space-x-4 p-4 hover:bg-slate-50 rounded-2xl transition-colors text-left"
                   >
                     <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500">
                       <link.icon size={20} />
                     </div>
                     <span className="font-bold text-slate-700">{link.name}</span>
-                  </a>
+                  </button>
                 ))}
               </div>
 

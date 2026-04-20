@@ -97,7 +97,7 @@ const Reviews = () => {
         
         <div className="mt-12 text-center">
           <a 
-            href="https://www.google.com/maps" 
+            href="https://www.google.com/maps/place/Piamontino+Petshop+y+Peluquer%C3%ADa+Canina/@-32.9215956,-68.8508256,15z/data=!3m1!4b1!4m6!3m5!1s0x967e09f77137dc91:0xb7e78f5f5a5093cb!8m2!3d-32.921597!4d-68.8323716!16s%2Fg%2F11m5c4r05q?entry=ttu&g_ep=EgoyMDI2MDQxNS4wIKXMDSoASAFQAw%3D%3D" 
             target="_blank" 
             rel="noopener noreferrer"
             className="text-pink-500 font-bold hover:underline inline-flex items-center mx-auto"

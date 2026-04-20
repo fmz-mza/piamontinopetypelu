@@ -10,9 +10,9 @@ import toast from 'react-hot-toast';
 interface Product {
   id?: string;
   name: string;
-  price: number;
-  cost: number;
-  stock: number;
+  price: number | string;
+  cost: number | string;
+  stock: number | string;
   ean: string;
   category: string;
   image_url: string;
@@ -25,16 +25,16 @@ interface Category {
 
 const emptyProduct: Product = {
   name: '',
-  price: 0,
-  cost: 0,
-  stock: 0,
+  price: '',
+  cost: '',
+  stock: '',
   ean: '',
   category: '',
   image_url: ''
 };
 
 const ProductManager: React.FC = () => {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -42,8 +42,9 @@ const ProductManager: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCatModalOpen, setIsCatModalOpen] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingProduct, setEditingProduct] = useState<any | null>(null);
   const [formData, setFormData] = useState<Product>(emptyProduct);
+  const [errors, setErrors] = useState<Record<string, boolean>>({});
   const [isConfigured, setIsConfigured] = useState(true);
 
   useEffect(() => {
@@ -69,7 +70,8 @@ const ProductManager: React.FC = () => {
     }
   };
 
-  const handleOpenModal = (product?: Product) => {
+  const handleOpenModal = (product?: any) => {
+    setErrors({});
     if (product) {
       setEditingProduct(product);
       setFormData({ ...product });
@@ -84,6 +86,7 @@ const ProductManager: React.FC = () => {
     setIsModalOpen(false);
     setEditingProduct(null);
     setFormData({ ...emptyProduct });
+    setErrors({});
   };
 
   const handleScan = (code: string) => {
@@ -93,33 +96,42 @@ const ProductManager: React.FC = () => {
   };
 
   const handleSave = async () => {
-    if (!formData.name || formData.price < 0) {
-      toast.error('Nombre y precio válido son obligatorios');
+    const newErrors: Record<string, boolean> = {};
+    if (!formData.name) newErrors.name = true;
+    if (formData.price === '') newErrors.price = true;
+    if (formData.cost === '') newErrors.cost = true;
+    if (formData.stock === '') newErrors.stock = true;
+    if (!formData.category) newErrors.category = true;
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.error('Por favor completa todos los campos obligatorios');
       return;
     }
 
     setLoading(true);
     try {
+      const payload = {
+        name: formData.name,
+        price: Number(formData.price),
+        cost: Number(formData.cost),
+        stock: Number(formData.stock),
+        ean: formData.ean,
+        category: formData.category,
+        image_url: formData.image_url,
+        updated_at: new Date().toISOString()
+      };
+
       if (editingProduct?.id) {
         const { error } = await supabase
           .from('products')
-          .update({
-            name: formData.name,
-            price: formData.price,
-            cost: formData.cost,
-            stock: formData.stock,
-            ean: formData.ean,
-            category: formData.category,
-            image_url: formData.image_url,
-            updated_at: new Date().toISOString()
-          })
+          .update(payload)
           .eq('id', editingProduct.id);
 
         if (error) throw error;
         toast.success('Producto actualizado');
       } else {
-        const { id, ...newProductData } = formData;
-        const { error } = await supabase.from('products').insert([newProductData]);
+        const { error } = await supabase.from('products').insert([payload]);
         if (error) throw error;
         toast.success('Producto creado');
       }
@@ -144,6 +156,10 @@ const ProductManager: React.FC = () => {
     }
   };
 
+  const formatPrice = (price: number) => {
+    return price.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  };
+
   const filteredProducts = products.filter(p => {
     const matchesSearch = 
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -151,20 +167,6 @@ const ProductManager: React.FC = () => {
     const matchesCategory = selectedCategory === 'Todas' || p.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
-
-  if (!isConfigured) {
-    return (
-      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6">
-        <div className="flex items-start gap-4">
-          <AlertCircle className="text-amber-500 shrink-0 mt-0.5" size={24} />
-          <div>
-            <h3 className="font-bold text-amber-800 mb-2">Supabase no configurado</h3>
-            <p className="text-amber-700 text-sm">Configurá las variables de entorno para gestionar productos.</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -255,7 +257,7 @@ const ProductManager: React.FC = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-lg font-black text-pink-500">${product.price.toFixed(2)}</p>
+                    <p className="text-lg font-black text-pink-500">${formatPrice(product.price)}</p>
                     <p className="text-xs text-slate-400">Stock: {product.stock}</p>
                   </div>
                   {product.ean && <span className="text-[10px] text-slate-400 font-mono">{product.ean}</span>}
@@ -284,22 +286,59 @@ const ProductManager: React.FC = () => {
             <div className="p-4 space-y-4">
               <div>
                 <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Nombre *</label>
-                <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 outline-none" placeholder="Nombre del producto" />
+                <input 
+                  type="text" 
+                  value={formData.name} 
+                  onChange={(e) => {
+                    setFormData({ ...formData, name: e.target.value });
+                    if (errors.name) setErrors({ ...errors, name: false });
+                  }} 
+                  className={`w-full px-4 py-3 rounded-xl border outline-none transition-all ${errors.name ? 'border-red-500 bg-red-50' : 'border-slate-200 focus:border-pink-500'}`} 
+                  placeholder="Nombre del producto" 
+                />
+                {errors.name && <p className="text-[10px] text-red-500 font-bold mt-1 uppercase">completar</p>}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Precio *</label>
-                  <input type="number" step="0.01" value={formData.price} onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 outline-none" />
+                  <input 
+                    type="number" 
+                    value={formData.price} 
+                    onChange={(e) => {
+                      setFormData({ ...formData, price: e.target.value });
+                      if (errors.price) setErrors({ ...errors, price: false });
+                    }} 
+                    className={`w-full px-4 py-3 rounded-xl border outline-none transition-all ${errors.price ? 'border-red-500 bg-red-50' : 'border-slate-200 focus:border-pink-500'}`} 
+                  />
+                  {errors.price && <p className="text-[10px] text-red-500 font-bold mt-1 uppercase">completar</p>}
                 </div>
                 <div>
-                  <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Costo</label>
-                  <input type="number" step="0.01" value={formData.cost} onChange={(e) => setFormData({ ...formData, cost: parseFloat(e.target.value) || 0 })} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 outline-none" />
+                  <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Costo *</label>
+                  <input 
+                    type="number" 
+                    value={formData.cost} 
+                    onChange={(e) => {
+                      setFormData({ ...formData, cost: e.target.value });
+                      if (errors.cost) setErrors({ ...errors, cost: false });
+                    }} 
+                    className={`w-full px-4 py-3 rounded-xl border outline-none transition-all ${errors.cost ? 'border-red-500 bg-red-50' : 'border-slate-200 focus:border-pink-500'}`} 
+                  />
+                  {errors.cost && <p className="text-[10px] text-red-500 font-bold mt-1 uppercase">completar</p>}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Stock</label>
-                  <input type="number" value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 outline-none" />
+                  <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Stock *</label>
+                  <input 
+                    type="number" 
+                    value={formData.stock} 
+                    onChange={(e) => {
+                      setFormData({ ...formData, stock: e.target.value });
+                      if (errors.stock) setErrors({ ...errors, stock: false });
+                    }} 
+                    className={`w-full px-4 py-3 rounded-xl border outline-none transition-all ${errors.stock ? 'border-red-500 bg-red-50' : 'border-slate-200 focus:border-pink-500'}`} 
+                  />
+                  {errors.stock && <p className="text-[10px] text-red-500 font-bold mt-1 uppercase">completar</p>}
                 </div>
                 <div>
                   <div className="flex items-center justify-between mb-1">
@@ -312,11 +351,19 @@ const ProductManager: React.FC = () => {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Categoría</label>
-                <select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 outline-none bg-white">
-                  <option value="">Sin categoría</option>
+                <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Categoría *</label>
+                <select 
+                  value={formData.category} 
+                  onChange={(e) => {
+                    setFormData({ ...formData, category: e.target.value });
+                    if (errors.category) setErrors({ ...errors, category: false });
+                  }} 
+                  className={`w-full px-4 py-3 rounded-xl border outline-none transition-all bg-white ${errors.category ? 'border-red-500 bg-red-50' : 'border-slate-200 focus:border-pink-500'}`}
+                >
+                  <option value="">Seleccionar categoría...</option>
                   {categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
                 </select>
+                {errors.category && <p className="text-[10px] text-red-500 font-bold mt-1 uppercase">completar</p>}
               </div>
               <div>
                 <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">URL de Imagen</label>

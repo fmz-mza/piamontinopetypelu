@@ -184,6 +184,10 @@ const SalesTerminal: React.FC = () => {
     }
   };
 
+  const formatPrice = (price: number) => {
+    return price.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  };
+
   const filteredProducts = products.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.ean?.includes(searchTerm)
@@ -238,7 +242,7 @@ const SalesTerminal: React.FC = () => {
                 className="p-3 bg-white border border-slate-200 rounded-xl hover:border-pink-300 hover:shadow-sm transition-all text-left active:scale-95"
               >
                 <p className="font-bold text-slate-800 text-xs line-clamp-1">{svc.name}</p>
-                <p className="text-pink-500 font-black text-sm">${svc.price.toLocaleString()}</p>
+                <p className="text-pink-500 font-black text-sm">${formatPrice(svc.price)}</p>
               </button>
             ))}
           </div>
@@ -265,7 +269,7 @@ const SalesTerminal: React.FC = () => {
                 </div>
                 <p className="font-bold text-slate-800 text-xs line-clamp-2 h-8 leading-tight mb-1">{product.name}</p>
                 <div className="flex justify-between items-end">
-                  <p className="text-pink-500 font-black text-sm">${product.price.toFixed(2)}</p>
+                  <p className="text-pink-500 font-black text-sm">${formatPrice(product.price)}</p>
                   <p className="text-[9px] font-black text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded-md">STK: {product.stock}</p>
                 </div>
               </button>
@@ -296,7 +300,7 @@ const SalesTerminal: React.FC = () => {
               <div key={item.product.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-slate-800 text-xs truncate">{item.product.name}</p>
-                  <p className="text-pink-500 font-black text-sm">${item.product.price.toFixed(2)}</p>
+                  <p className="text-pink-500 font-black text-sm">${formatPrice(item.product.price)}</p>
                 </div>
                 <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-100">
                   <button onClick={() => updateQuantity(item.product.id, -1)} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-slate-50 text-slate-400"><Minus size={14} /></button>
@@ -311,7 +315,7 @@ const SalesTerminal: React.FC = () => {
         <div className="p-6 border-t space-y-4 bg-white">
           <div className="flex justify-between items-center">
             <span className="text-slate-400 font-black uppercase tracking-widest text-[10px]">Total a cobrar</span>
-            <span className="text-3xl font-black text-slate-900">${cartTotal.toFixed(2)}</span>
+            <span className="text-3xl font-black text-slate-900">${formatPrice(cartTotal)}</span>
           </div>
           <button 
             onClick={() => setShowCheckout(true)} 
@@ -341,7 +345,7 @@ const SalesTerminal: React.FC = () => {
             </div>
             <div className="text-left">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 leading-none mb-1">Total</p>
-              <p className="text-xl font-black leading-none">${cartTotal.toFixed(2)}</p>
+              <p className="text-xl font-black leading-none">${formatPrice(cartTotal)}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 font-black uppercase tracking-widest text-xs">
@@ -368,7 +372,7 @@ const SalesTerminal: React.FC = () => {
                 <div key={item.product.id} className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-slate-800 text-sm truncate">{item.product.name}</p>
-                    <p className="text-pink-500 font-black text-base">${item.product.price.toFixed(2)}</p>
+                    <p className="text-pink-500 font-black text-base">${formatPrice(item.product.price)}</p>
                   </div>
                   <div className="flex items-center gap-3 bg-white p-1.5 rounded-xl border border-slate-100">
                     <button onClick={() => updateQuantity(item.product.id, -1)} className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400"><Minus size={16} /></button>
@@ -381,7 +385,7 @@ const SalesTerminal: React.FC = () => {
             <div className="p-6 border-t bg-white space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-slate-400 font-black uppercase tracking-widest text-xs">Total</span>
-                <span className="text-3xl font-black text-slate-900">${cartTotal.toFixed(2)}</span>
+                <span className="text-3xl font-black text-slate-900">${formatPrice(cartTotal)}</span>
               </div>
               <button 
                 onClick={() => setShowCheckout(true)}
@@ -408,7 +412,7 @@ const SalesTerminal: React.FC = () => {
             <div className="p-8 space-y-8">
               <div className="text-center">
                 <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-2">Total a cobrar</p>
-                <p className="text-5xl font-black text-slate-900 tracking-tighter">${cartTotal.toFixed(2)}</p>
+                <p className="text-5xl font-black text-slate-900 tracking-tighter">${formatPrice(cartTotal)}</p>
               </div>
               
               <div className="grid grid-cols-3 gap-3">
@@ -438,7 +442,7 @@ const SalesTerminal: React.FC = () => {
                   >
                     <option value="">Elegir cliente...</option>
                     {customers.map(c => (
-                      <option key={c.id} value={c.id}>{c.name} (Saldo: ${c.balance.toFixed(2)})</option>
+                      <option key={c.id} value={c.id}>{c.name} (Saldo: ${formatPrice(c.balance)})</option>
                     ))}
                   </select>
                 </div>

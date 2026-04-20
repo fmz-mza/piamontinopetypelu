@@ -27,10 +27,12 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onClose }) => {
           return;
         }
 
+        // Priorizar cámara trasera (environment)
         const selectedDevice = devices.find(d => 
           d.label.toLowerCase().includes('back') || 
-          d.label.toLowerCase().includes('rear')
-        ) || devices[0];
+          d.label.toLowerCase().includes('rear') ||
+          d.label.toLowerCase().includes('trasera')
+        ) || devices[devices.length - 1]; // Usualmente la última es la trasera en móviles
 
         setScanning(true);
         
@@ -93,7 +95,6 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onClose }) => {
             muted
           />
           
-          {/* Scanning overlay */}
           {scanning && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="w-64 h-40 border-2 border-pink-500 rounded-lg relative">

@@ -67,6 +67,10 @@ const Products = () => {
     }
   };
 
+  const formatPrice = (price: number) => {
+    return price.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  };
+
   return (
     <section id="productos" className="py-24">
       <div className="container mx-auto px-6">
@@ -115,7 +119,7 @@ const Products = () => {
                     <div className="flex text-pink-400 mb-2">
                       {[...Array(5)].map((_, i) => <Star key={i} size={12} fill="currentColor" />)}
                     </div>
-                    <p className="text-xl font-black text-pink-500">${p.price.toFixed(2)}</p>
+                    <p className="text-xl font-black text-pink-500">${formatPrice(p.price)}</p>
                   </div>
                   <button className="bg-slate-900 text-white p-3 rounded-xl hover:bg-pink-500 transition-colors shadow-lg">
                     <ShoppingBag size={20} />

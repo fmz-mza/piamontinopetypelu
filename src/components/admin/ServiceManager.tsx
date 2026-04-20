@@ -8,15 +8,16 @@ import toast from 'react-hot-toast';
 interface Service {
   id?: string;
   name: string;
-  price: number;
+  price: number | string;
   category: string;
 }
 
 const ServiceManager: React.FC = () => {
-  const [services, setServices] = useState<Service[]>([]);
+  const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState<Service>({ name: '', price: 0, category: 'Peluquería' });
+  const [formData, setFormData] = useState<Service>({ name: '', price: '', category: 'Peluquería' });
+  const [errors, setErrors] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (isSupabaseConfigured()) {
@@ -41,18 +42,27 @@ const ServiceManager: React.FC = () => {
   };
 
   const handleSave = async () => {
-    if (!formData.name || formData.price <= 0) {
-      toast.error('Nombre y precio son obligatorios');
+    const newErrors: Record<string, boolean> = {};
+    if (!formData.name) newErrors.name = true;
+    if (formData.price === '') newErrors.price = true;
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.error('Por favor completa todos los campos');
       return;
     }
 
     try {
-      const { error } = await supabase.from('services').insert([formData]);
+      const { error } = await supabase.from('services').insert([{
+        ...formData,
+        price: Number(formData.price)
+      }]);
       if (error) throw error;
       toast.success('Servicio agregado');
       fetchServices();
       setIsModalOpen(false);
-      setFormData({ name: '', price: 0, category: 'Peluquería' });
+      setFormData({ name: '', price: '', category: 'Peluquería' });
+      setErrors({});
     } catch (err) {
       toast.error('Error al guardar');
     }
@@ -70,6 +80,10 @@ const ServiceManager: React.FC = () => {
     }
   };
 
+  const formatPrice = (price: number) => {
+    return price.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -78,7 +92,11 @@ const ServiceManager: React.FC = () => {
           <p className="text-slate-500">Gestioná los precios de los servicios rápidos del POS</p>
         </div>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setFormData({ name: '', price: '', category: 'Peluquería' });
+            setErrors({});
+            setIsModalOpen(true);
+          }}
           className="px-4 py-2 bg-pink-500 text-white rounded-xl font-medium hover:bg-pink-600 transition-colors flex items-center gap-2"
         >
           <Plus size={20} />
@@ -92,7 +110,7 @@ const ServiceManager: React.FC = () => {
             <div>
               <p className="text-xs font-bold text-pink-500 uppercase mb-1">{service.category}</p>
               <h3 className="font-bold text-slate-800">{service.name}</h3>
-              <p className="text-lg font-black text-slate-900">${service.price.toLocaleString()}</p>
+              <p className="text-lg font-black text-slate-900">${formatPrice(service.price)}</p>
             </div>
             <button
               onClick={() => service.id && handleDelete(service.id)}
@@ -115,23 +133,32 @@ const ServiceManager: React.FC = () => {
             </div>
             <div className="p-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Nombre</label>
+                <label className="block text-sm font-medium text-slate-600 mb-1">Nombre *</label>
                 <input
                   type="text"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-pink-500 outline-none"
+                  onChange={(e) => {
+                    setFormData({ ...formData, name: e.target.value });
+                    if (errors.name) setErrors({ ...errors, name: false });
+                  }}
+                  className={`w-full px-4 py-2.5 rounded-xl border outline-none transition-all ${errors.name ? 'border-red-500 bg-red-50' : 'border-slate-200 focus:border-pink-500'}`}
                   placeholder="Ej: Peluquería Caniche"
                 />
+                {errors.name && <p className="text-[10px] text-red-500 font-bold mt-1 uppercase">completar</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Precio</label>
+                <label className="block text-sm font-medium text-slate-600 mb-1">Precio *</label>
                 <input
                   type="number"
                   value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-pink-500 outline-none"
+                  onChange={(e) => {
+                    setFormData({ ...formData, price: e.target.value });
+                    if (errors.price) setErrors({ ...errors, price: false });
+                  }}
+                  className={`w-full px-4 py-2.5 rounded-xl border outline-none transition-all ${errors.price ? 'border-red-500 bg-red-50' : 'border-slate-200 focus:border-pink-500'}`}
+                  placeholder="0"
                 />
+                {errors.price && <p className="text-[10px] text-red-500 font-bold mt-1 uppercase">completar</p>}
               </div>
             </div>
             <div className="p-4 border-t">

@@ -5,7 +5,8 @@ import { MessageCircle } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 const WhatsAppButton = () => {
-  const [phone, setPhone] = useState('');
+  // Número por defecto por si la base de datos está vacía inicialmente
+  const [phone, setPhone] = useState('5492610000000');
 
   useEffect(() => {
     if (isSupabaseConfigured()) {
@@ -22,7 +23,7 @@ const WhatsAppButton = () => {
         .eq('key', 'whatsapp_number')
         .single();
 
-      if (data) {
+      if (data && data.value) {
         setPhone(data.value);
       }
     } catch (err) {
@@ -38,6 +39,8 @@ const WhatsAppButton = () => {
   return (
     <a
       href={`https://wa.me/${cleanPhone}`}
+      target="_blank"
+      rel="noopener noreferrer"
       className="fixed bottom-8 right-8 z-[100] bg-[#25D366] text-white p-4 rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-all duration-300 flex items-center justify-center group"
       aria-label="Chat on WhatsApp"
     >

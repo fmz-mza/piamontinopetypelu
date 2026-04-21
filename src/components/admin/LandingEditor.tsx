@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
-import { Save, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
+import { Save, RefreshCw, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface LandingContent {
@@ -21,6 +21,7 @@ const defaultContent: LandingContent[] = [
   { section: 'products', key: 'subtitle', value: 'Los favoritos de la comunidad para este mes.' },
   { section: 'about', key: 'title', value: 'Pasión por lo que hacemos.' },
   { section: 'about', key: 'description', value: 'En Piamontino, entendemos que tu mascota es parte de tu familia. Por eso, dedicamos cada día a brindar un servicio de excelencia, combinando nuestra experiencia en peluquería canina con una selección premium de productos para su bienestar y el cuidado de tu hogar.' },
+  { section: 'contact', key: 'whatsapp_number', value: '5492610000000' },
 ];
 
 const LandingEditor: React.FC = () => {
@@ -46,7 +47,17 @@ const LandingEditor: React.FC = () => {
       if (error) throw error;
 
       if (data && data.length > 0) {
-        setContent(data);
+        // Combinar con defaultContent para asegurar que todas las keys existan
+        const merged = [...defaultContent];
+        data.forEach(item => {
+          const index = merged.findIndex(m => m.section === item.section && m.key === item.key);
+          if (index !== -1) {
+            merged[index] = item;
+          } else {
+            merged.push(item);
+          }
+        });
+        setContent(merged);
       }
     } catch (err) {
       console.error('Error fetching content:', err);
@@ -100,19 +111,15 @@ const LandingEditor: React.FC = () => {
           <div>
             <h3 className="font-bold text-amber-800 mb-2">Supabase no configurado</h3>
             <p className="text-amber-700 text-sm mb-4">
-              Para editar el contenido de la landing page, necesitás configurar las variables de entorno:
+              Para editar el contenido de la landing page, necesitás configurar las variables de entorno.
             </p>
-            <code className="block bg-white p-3 rounded-lg text-sm text-amber-800 border border-amber-200">
-              VITE_SUPABASE_URL=tu_url<br />
-              VITE_SUPABASE_ANON_KEY=tu_key
-            </code>
           </div>
         </div>
       </div>
     );
   }
 
-  const sections = ['hero', 'services', 'products', 'about'];
+  const sections = ['hero', 'services', 'products', 'about', 'contact'];
 
   return (
     <div className="space-y-6">
@@ -153,9 +160,10 @@ const LandingEditor: React.FC = () => {
                 <span className={`w-2 h-2 rounded-full ${
                   section === 'hero' ? 'bg-pink-500' : 
                   section === 'services' ? 'bg-blue-500' : 
-                  section === 'products' ? 'bg-green-500' : 'bg-amber-500'
+                  section === 'products' ? 'bg-green-500' : 
+                  section === 'contact' ? 'bg-emerald-500' : 'bg-amber-500'
                 }`} />
-                Sección {section}
+                Sección {section === 'contact' ? 'Contacto' : section}
               </h2>
               <div className="space-y-4">
                 {content.filter(c => c.section === section).map(item => (
@@ -176,6 +184,7 @@ const LandingEditor: React.FC = () => {
                         value={item.value}
                         onChange={(e) => handleChange(item.section, item.key, e.target.value)}
                         className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-100 outline-none transition-all"
+                        placeholder={item.key === 'whatsapp_number' ? 'Ej: 5492610000000' : ''}
                       />
                     )}
                   </div>

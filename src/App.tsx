@@ -10,6 +10,7 @@ import Products from './components/Products';
 import About from './components/About';
 import Reviews from './components/Reviews';
 import Footer from './components/Footer';
+import WhatsAppButton from './components/WhatsAppButton';
 
 // Admin Components
 import AdminLayout from './components/admin/AdminLayout';
@@ -37,6 +38,7 @@ function LandingPage() {
         <Reviews />
       </main>
       <Footer />
+      <WhatsAppButton />
     </div>
   );
 }

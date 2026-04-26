@@ -50,6 +50,10 @@ const SalesTerminal: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showMobileCart, setShowMobileCart] = useState(false);
   
+  // Nuevo Cliente Modal State
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [newCustomer, setNewCustomer] = useState({ name: '', phone: '' });
+
   // Descuentos y Recargos
   const [discountPercent, setDiscountPercent] = useState(0);
   const [surchargePercent, setSurchargePercent] = useState(0);
@@ -148,6 +152,34 @@ const SalesTerminal: React.FC = () => {
   const discountAmount = (subtotal * discountPercent) / 100;
   const surchargeAmount = (subtotal * surchargePercent) / 100;
   const cartTotal = subtotal - discountAmount + surchargeAmount;
+
+  const handleAddCustomer = async () => {
+    if (!newCustomer.name) {
+      toast.error('El nombre es obligatorio');
+      return;
+    }
+    try {
+      const { data, error } = await supabase.from('customers').insert([{
+        name: newCustomer.name,
+        phone: newCustomer.phone,
+        balance: 0
+      }]).select();
+
+      if (error) throw error;
+      
+      toast.success('Cliente creado');
+      setShowCustomerModal(false);
+      setNewCustomer({ name: '', phone: '' });
+      
+      // Refrescar lista y seleccionar al nuevo cliente
+      await fetchData();
+      if (data && data[0]) {
+        setSelectedCustomerId(data[0].id);
+      }
+    } catch (err) { 
+      toast.error('Error al crear cliente'); 
+    }
+  };
 
   const handleCheckout = async () => {
     if (cart.length === 0 || isProcessing) return;
@@ -476,16 +508,42 @@ const SalesTerminal: React.FC = () => {
                 ))}
               </div>
               {paymentMethod === 'cuenta_corriente' && (
-                <select value={selectedCustomerId} onChange={(e) => setSelectedCustomerId(e.target.value)} className="w-full px-4 py-4 rounded-2xl border border-slate-200 outline-none focus:border-pink-500 bg-slate-50 font-bold text-sm">
-                  <option value="">Elegir cliente...</option>
-                  {customers.map(c => <option key={c.id} value={c.id}>{c.name} (${formatPrice(c.balance)})</option>)}
-                </select>
+                <div className="flex gap-2">
+                  <select value={selectedCustomerId} onChange={(e) => setSelectedCustomerId(e.target.value)} className="flex-1 px-4 py-4 rounded-2xl border border-slate-200 outline-none focus:border-pink-500 bg-slate-50 font-bold text-sm">
+                    <option value="">Elegir cliente...</option>
+                    {customers.map(c => <option key={c.id} value={c.id}>{c.name} (${formatPrice(c.balance)})</option>)}
+                  </select>
+                  <button 
+                    onClick={() => setShowCustomerModal(true)}
+                    className="p-4 bg-slate-100 text-slate-600 rounded-2xl hover:bg-slate-200 transition-all"
+                    title="Agregar nuevo cliente"
+                  >
+                    <Plus size={20} />
+                  </button>
+                </div>
               )}
             </div>
             <div className="p-8 bg-slate-50/50 border-t">
               <button onClick={handleCheckout} disabled={isProcessing} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-base hover:bg-pink-600 transition-all flex items-center justify-center gap-3 shadow-xl active:scale-95 disabled:opacity-50">
                 {isProcessing ? <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin" /> : <>Confirmar Pago <DollarSign size={20} /></>}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Nuevo Cliente */}
+      {showCustomerModal && (
+        <div className="fixed inset-0 z-[130] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden shadow-2xl">
+            <div className="p-8 border-b flex justify-between items-center bg-slate-50/50">
+              <h3 className="text-xl font-black text-slate-900 tracking-tight">Nuevo Cliente</h3>
+              <button onClick={() => setShowCustomerModal(false)} className="p-2 text-slate-400"><X size={20} /></button>
+            </div>
+            <div className="p-8 space-y-4">
+              <input type="text" value={newCustomer.name} onChange={e => setNewCustomer({...newCustomer, name: e.target.value})} className="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-pink-500/20 outline-none font-bold" placeholder="Nombre Completo" />
+              <input type="tel" value={newCustomer.phone} onChange={e => setNewCustomer({...newCustomer, phone: e.target.value})} className="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-pink-500/20 outline-none font-bold" placeholder="WhatsApp" />
+              <button onClick={handleAddCustomer} className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black uppercase tracking-widest text-sm shadow-xl active:scale-95">Crear Cliente</button>
             </div>
           </div>
         </div>

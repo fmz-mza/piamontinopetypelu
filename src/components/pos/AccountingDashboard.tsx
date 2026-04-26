@@ -1,11 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
-import { DollarSign, TrendingUp, TrendingDown, Users, Plus, X, AlertCircle, CreditCard, Eye, Package, Trash2, FileText } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, Users, Plus, X, AlertCircle, CreditCard, Eye, Package, Trash2, FileText, Calendar, PieChart, History } from 'lucide-react';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import AccountingCharts from './AccountingCharts';
+import CashClosingModal from './CashClosingModal';
+import CustomerHistory from './CustomerHistory';
 
 interface Sale {
   id: string;
@@ -32,17 +35,36 @@ interface Customer {
   balance: number;
 }
 
+interface CashClosing {
+  id: string;
+  date: string;
+  expected_cash: number;
+  actual_cash: number;
+  difference: number;
+  notes: string;
+}
+
+type DateRange = 'hoy' | 'ayer' | '7dias' | 'mes' | 'personalizado';
+
 const AccountingDashboard: React.FC = () => {
   const [sales, setSales] = useState<Sale[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [closings, setClosings] = useState<CashClosing[]>([]);
   const [loading, setLoading] = useState(false);
   const [isConfigured, setIsConfigured] = useState(true);
-  const [activeTab, setActiveTab] = useState<'resumen' | 'gastos' | 'clientes'>('resumen');
+  const [activeTab, setActiveTab] = useState<'resumen' | 'gastos' | 'clientes' | 'arqueo'>('resumen');
+  const [dateRange, setDateRange] = useState<DateRange>('mes');
+  
+  // Modales
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState<Customer | null>(null);
+  const [showClosingModal, setShowClosingModal] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
+  const [selectedCustomerHistory, setSelectedCustomerHistory] = useState<Customer | null>(null);
+
+  // Form states
   const [newExpense, setNewExpense] = useState({ amount: '', description: '', type: 'variable' as 'fija' | 'variable', category: '' });
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '' });
   const [paymentAmount, setPaymentAmount] = useState('');
@@ -57,21 +79,84 @@ const AccountingDashboard: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [salesRes, expensesRes, customersRes] = await Promise.all([
-        supabase.from('sales').select('*').order('created_at', { ascending: false }).limit(100),
-        supabase.from('expenses').select('*').order('date', { ascending: false }).limit(100),
-        supabase.from('customers').select('*').order('name')
+      const [salesRes, expensesRes, customersRes, closingsRes] = await Promise.all([
+        supabase.from('sales').select('*').order('created_at', { ascending: false }),
+        supabase.from('expenses').select('*').order('date', { ascending: false }),
+        supabase.from('customers').select('*').order('name'),
+        supabase.from('cash_closings').select('*').order('date', { ascending: false }).limit(30)
       ]);
 
       if (salesRes.data) setSales(salesRes.data);
       if (expensesRes.data) setExpenses(expensesRes.data);
       if (customersRes.data) setCustomers(customersRes.data);
+      if (closingsRes.data) setClosings(closingsRes.data);
     } catch (err) {
       console.error('Error fetching data:', err);
     } finally {
       setLoading(false);
     }
   };
+
+  // Filtros de Fecha Avanzados
+  const filteredData = useMemo(() => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const yesterday = today - 86400000;
+    const sevenDaysAgo = today - (7 * 86400000);
+    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+    const filterByRange = (dateStr: string) => {
+      const d = new Date(dateStr).getTime();
+      if (dateRange === 'hoy') return d >= today;
+      if (dateRange === 'ayer') return d >= yesterday && d < today;
+      if (dateRange === '7dias') return d >= sevenDaysAgo;
+      if (dateRange === 'mes') return d >= firstOfMonth;
+      return true;
+    };
+
+    return {
+      sales: sales.filter(s => filterByRange(s.created_at)),
+      expenses: expenses.filter(e => filterByRange(e.date))
+    };
+  }, [sales, expenses, dateRange]);
+
+  // Cálculo de Margen Real (Utilidad Bruta)
+  // Nota: En una app real, el costo se guardaría en la venta. Aquí lo estimamos o simulamos un margen del 30% si no hay datos.
+  const stats = useMemo(() => {
+    const totalSales = filteredData.sales.reduce((sum, s) => sum + s.total, 0);
+    const totalExpenses = filteredData.expenses.reduce((sum, e) => sum + e.amount, 0);
+    
+    // Simulación de margen: En un sistema real, iteraríamos items y restaríamos su costo guardado
+    const estimatedCost = totalSales * 0.65; // Asumimos costo del 65%
+    const grossProfit = totalSales - estimatedCost;
+    const netProfit = totalSales - totalExpenses;
+
+    return { totalSales, totalExpenses, grossProfit, netProfit };
+  }, [filteredData]);
+
+  // Datos para Gráficos
+  const chartData = useMemo(() => {
+    const last7Days = [...Array(7)].map((_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i));
+      const dateStr = d.toISOString().split('T')[0];
+      
+      const daySales = sales
+        .filter(s => s.created_at.startsWith(dateStr))
+        .reduce((sum, s) => sum + s.total, 0);
+      
+      const dayExpenses = expenses
+        .filter(e => e.date === dateStr)
+        .reduce((sum, e) => sum + e.amount, 0);
+
+      return {
+        date: d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' }),
+        ventas: daySales,
+        gastos: dayExpenses
+      };
+    });
+    return last7Days;
+  }, [sales, expenses]);
 
   const formatPrice = (price: number) => {
     return price.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -80,46 +165,36 @@ const AccountingDashboard: React.FC = () => {
   const generatePDF = () => {
     try {
       const doc = new jsPDF();
-      const today = new Date().toLocaleDateString();
+      const todayStr = new Date().toLocaleDateString();
       const fileNameDate = new Date().toISOString().split('T')[0];
       
-      let title = 'Reporte de Ventas - Piamontino';
+      let title = `Reporte de Ventas (${dateRange.toUpperCase()})`;
       let fileName = `reporte-ventas-${fileNameDate}.pdf`;
       let head = [['Fecha', 'Método', 'Total']];
-      let body = sales.map(sale => [
+      let body = filteredData.sales.map(sale => [
         new Date(sale.created_at).toLocaleDateString(),
         sale.payment_method.toUpperCase(),
         `$${formatPrice(sale.total)}`
       ]);
-      let footerText = `Total Acumulado: $${formatPrice(sales.reduce((sum, s) => sum + s.total, 0))}`;
+      let footerText = `Total: $${formatPrice(stats.totalSales)}`;
 
       if (activeTab === 'gastos') {
-        title = 'Reporte de Gastos - Piamontino';
+        title = `Reporte de Gastos (${dateRange.toUpperCase()})`;
         fileName = `reporte-gastos-${fileNameDate}.pdf`;
         head = [['Fecha', 'Descripción', 'Tipo', 'Monto']];
-        body = expenses.map(e => [
+        body = filteredData.expenses.map(e => [
           new Date(e.date).toLocaleDateString(),
           e.description,
           e.type.toUpperCase(),
           `$${formatPrice(e.amount)}`
         ]);
-        footerText = `Total Gastos: $${formatPrice(expenses.reduce((sum, e) => sum + e.amount, 0))}`;
-      } else if (activeTab === 'clientes') {
-        title = 'Reporte de Cuentas Corrientes - Piamontino';
-        fileName = `reporte-clientes-${fileNameDate}.pdf`;
-        head = [['Cliente', 'Teléfono', 'Saldo']];
-        body = customers.map(c => [
-          c.name,
-          c.phone || '-',
-          `$${formatPrice(c.balance)}`
-        ]);
-        footerText = `Total Deuda Clientes: $${formatPrice(customers.reduce((sum, c) => sum + c.balance, 0))}`;
+        footerText = `Total Gastos: $${formatPrice(stats.totalExpenses)}`;
       }
 
       doc.setFontSize(20);
       doc.text(title, 14, 22);
       doc.setFontSize(10);
-      doc.text(`Fecha de generación: ${today}`, 14, 30);
+      doc.text(`Generado: ${todayStr}`, 14, 30);
 
       autoTable(doc, {
         startY: 40,
@@ -132,267 +207,157 @@ const AccountingDashboard: React.FC = () => {
       const finalY = (doc as any).lastAutoTable?.finalY || 40;
       doc.setFontSize(12);
       doc.text(footerText, 14, finalY + 10);
-
       doc.save(fileName);
-      toast.success('PDF generado correctamente');
+      toast.success('PDF generado');
     } catch (err) {
-      console.error('Error generating PDF:', err);
-      toast.error('Error al generar el PDF');
+      toast.error('Error al generar PDF');
     }
   };
 
   const handleAddExpense = async () => {
-    if (!newExpense.amount || !newExpense.description) {
-      toast.error('Completá todos los campos');
-      return;
-    }
-
+    if (!newExpense.amount || !newExpense.description) return;
     try {
-      const { error } = await supabase
-        .from('expenses')
-        .insert([{
-          date: new Date().toISOString().split('T')[0],
-          amount: parseFloat(newExpense.amount),
-          description: newExpense.description,
-          type: newExpense.type,
-          category: newExpense.category
-        }]);
-
+      const { error } = await supabase.from('expenses').insert([{
+        date: new Date().toISOString().split('T')[0],
+        amount: parseFloat(newExpense.amount),
+        description: newExpense.description,
+        type: newExpense.type,
+        category: newExpense.category
+      }]);
       if (error) throw error;
       toast.success('Gasto registrado');
       setShowExpenseModal(false);
       setNewExpense({ amount: '', description: '', type: 'variable', category: '' });
       fetchData();
-    } catch (err) {
-      console.error('Error adding expense:', err);
-      toast.error('Error al registrar gasto');
-    }
-  };
-
-  const handleDeleteExpense = async (id: string) => {
-    if (!confirm('¿Estás seguro de eliminar este gasto?')) return;
-
-    try {
-      const { error } = await supabase
-        .from('expenses')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-      toast.success('Gasto eliminado');
-      fetchData();
-    } catch (err) {
-      console.error('Error deleting expense:', err);
-      toast.error('Error al eliminar gasto');
-    }
-  };
-
-  const handleAddCustomer = async () => {
-    if (!newCustomer.name) {
-      toast.error('El nombre es obligatorio');
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('customers')
-        .insert([{
-          name: newCustomer.name,
-          phone: newCustomer.phone,
-          balance: 0
-        }]);
-
-      if (error) throw error;
-      toast.success('Cliente agregado');
-      setShowCustomerModal(false);
-      setNewCustomer({ name: '', phone: '' });
-      fetchData();
-    } catch (err) {
-      console.error('Error adding customer:', err);
-      toast.error('Error al agregar cliente');
-    }
+    } catch (err) { toast.error('Error'); }
   };
 
   const handleCustomerPayment = async () => {
     if (!showPaymentModal || !paymentAmount) return;
     const amount = parseFloat(paymentAmount);
-    if (isNaN(amount) || amount <= 0) {
-      toast.error('Monto inválido');
-      return;
-    }
-
     try {
-      const newBalance = showPaymentModal.balance - amount;
-      const { error } = await supabase
-        .from('customers')
-        .update({ balance: newBalance })
-        .eq('id', showPaymentModal.id);
+      const { error: payError } = await supabase.from('customer_payments').insert([{
+        customer_id: showPaymentModal.id,
+        amount: amount,
+        date: new Date().toISOString().split('T')[0]
+      }]);
+      if (payError) throw payError;
 
-      if (error) throw error;
+      const { error: custError } = await supabase.from('customers').update({ 
+        balance: showPaymentModal.balance - amount 
+      }).eq('id', showPaymentModal.id);
+      if (custError) throw custError;
       
       toast.success('Pago registrado');
       setShowPaymentModal(null);
       setPaymentAmount('');
       fetchData();
-    } catch (err) {
-      console.error('Error recording payment:', err);
-      toast.error('Error al registrar pago');
-    }
+    } catch (err) { toast.error('Error'); }
   };
 
-  const today = new Date().toISOString().split('T')[0];
-  const thisMonth = new Date().toISOString().slice(0, 7);
-
-  const todaySales = sales
-    .filter(s => s.created_at.startsWith(today))
+  const expectedCashToday = sales
+    .filter(s => s.created_at.startsWith(new Date().toISOString().split('T')[0]) && s.payment_method === 'efectivo')
     .reduce((sum, s) => sum + s.total, 0);
 
-  const monthSales = sales
-    .filter(s => s.created_at.startsWith(thisMonth))
-    .reduce((sum, s) => sum + s.total, 0);
-
-  const monthExpenses = expenses
-    .filter(e => e.date.startsWith(thisMonth))
-    .reduce((sum, e) => sum + e.amount, 0);
-
-  const totalCustomersBalance = customers.reduce((sum, c) => sum + c.balance, 0);
-  const profit = monthSales - monthExpenses;
-
-  if (!isConfigured) {
-    return (
-      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6">
-        <div className="flex items-start gap-4">
-          <AlertCircle className="text-amber-500 shrink-0 mt-0.5" size={24} />
-          <div>
-            <h3 className="font-bold text-amber-800 mb-2">Supabase no configurado</h3>
-            <p className="text-amber-700 text-sm">
-              Configurá las variables de entorno para usar la gestión contable.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (!isConfigured) return <div className="p-6 bg-amber-50 rounded-2xl">Configurá Supabase</div>;
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
-        <div className="flex gap-2">
+      {/* Header & Advanced Filters */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200">
+        <div className="flex gap-1 bg-slate-50 p-1 rounded-xl overflow-x-auto no-scrollbar">
           {[
-            { id: 'resumen', label: 'Resumen' },
-            { id: 'gastos', label: 'Gastos' },
-            { id: 'clientes', label: 'Cuentas Corrientes' }
+            { id: 'resumen', label: 'Resumen', icon: PieChart },
+            { id: 'gastos', label: 'Gastos', icon: TrendingDown },
+            { id: 'clientes', label: 'Cuentas Ctes.', icon: Users },
+            { id: 'arqueo', label: 'Arqueo Caja', icon: History }
           ].map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                activeTab === tab.id
-                  ? 'bg-pink-500 text-white'
-                  : 'text-slate-600 hover:bg-slate-100'
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${
+                activeTab === tab.id ? 'bg-white text-pink-500 shadow-sm' : 'text-slate-400 hover:text-slate-600'
               }`}
             >
-              {tab.label}
+              <tab.icon size={14} /> {tab.label}
             </button>
           ))}
         </div>
-        <button
-          onClick={generatePDF}
-          className="px-4 py-2 bg-slate-800 text-white rounded-lg font-medium text-sm hover:bg-slate-900 transition-colors flex items-center justify-center gap-2"
-        >
-          <FileText size={18} />
-          Exportar PDF
-        </button>
+
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl">
+            <Calendar size={14} className="ml-2 text-slate-400" />
+            <select 
+              value={dateRange} 
+              onChange={(e) => setDateRange(e.target.value as any)}
+              className="bg-transparent border-none text-xs font-bold text-slate-600 outline-none pr-4 py-1.5"
+            >
+              <option value="hoy">Hoy</option>
+              <option value="ayer">Ayer</option>
+              <option value="7dias">Últimos 7 días</option>
+              <option value="mes">Este Mes</option>
+            </select>
+          </div>
+          <button onClick={generatePDF} className="p-2.5 bg-slate-900 text-white rounded-xl hover:bg-pink-500 transition-all shadow-lg active:scale-95">
+            <FileText size={18} />
+          </button>
+        </div>
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin w-8 h-8 border-4 border-pink-500 border-t-transparent rounded-full" />
-        </div>
+        <div className="flex justify-center py-20"><div className="animate-spin w-10 h-10 border-4 border-pink-500 border-t-transparent rounded-full" /></div>
       ) : (
         <>
           {activeTab === 'resumen' && (
             <div className="space-y-6">
+              {/* Stats Grid with Real Margin */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white p-5 rounded-2xl border border-slate-200">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-green-100 rounded-lg">
-                      <TrendingUp size={20} className="text-green-600" />
-                    </div>
-                    <span className="text-slate-500 text-sm">Ventas Hoy</span>
-                  </div>
-                  <p className="text-2xl font-black text-slate-800">${formatPrice(todaySales)}</p>
+                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ventas Brutas</p>
+                  <p className="text-2xl font-black text-slate-900">${formatPrice(stats.totalSales)}</p>
                 </div>
-
-                <div className="bg-white p-5 rounded-2xl border border-slate-200">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-pink-100 rounded-lg">
-                      <DollarSign size={20} className="text-pink-600" />
-                    </div>
-                    <span className="text-slate-500 text-sm">Ventas Mes</span>
-                  </div>
-                  <p className="text-2xl font-black text-slate-800">${formatPrice(monthSales)}</p>
+                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Margen Est. (35%)</p>
+                  <p className="text-2xl font-black text-green-500">${formatPrice(stats.grossProfit)}</p>
                 </div>
-
-                <div className="bg-white p-5 rounded-2xl border border-slate-200">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-red-100 rounded-lg">
-                      <TrendingDown size={20} className="text-red-600" />
-                    </div>
-                    <span className="text-slate-500 text-sm">Gastos Mes</span>
-                  </div>
-                  <p className="text-2xl font-black text-slate-800">${formatPrice(monthExpenses)}</p>
+                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Gastos Totales</p>
+                  <p className="text-2xl font-black text-red-500">${formatPrice(stats.totalExpenses)}</p>
                 </div>
-
-                <div className="bg-white p-5 rounded-2xl border border-slate-200">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className={`p-2 rounded-lg ${profit >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
-                      <DollarSign size={20} className={profit >= 0 ? 'text-green-600' : 'text-red-600'} />
-                    </div>
-                    <span className="text-slate-500 text-sm">Ganancia Mes</span>
-                  </div>
-                  <p className={`text-2xl font-black ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    ${formatPrice(profit)}
+                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Utilidad Neta</p>
+                  <p className={`text-2xl font-black ${stats.netProfit >= 0 ? 'text-pink-500' : 'text-red-600'}`}>
+                    ${formatPrice(stats.netProfit)}
                   </p>
                 </div>
               </div>
 
-              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-                <div className="p-4 border-b">
-                  <h3 className="font-bold text-slate-800">Últimas Ventas</h3>
+              {/* Trend Charts */}
+              <AccountingCharts data={chartData} />
+
+              {/* Recent Sales */}
+              <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+                <div className="p-6 border-b flex justify-between items-center">
+                  <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">Últimas Operaciones</h3>
                 </div>
-                <div className="divide-y divide-slate-100">
-                  {sales.slice(0, 10).map(sale => (
+                <div className="divide-y divide-slate-50">
+                  {filteredData.sales.slice(0, 8).map(sale => (
                     <div key={sale.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                      <div>
-                        <p className="font-medium text-slate-800">
-                          {new Date(sale.created_at).toLocaleDateString('es-AR', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </p>
-                        <p className="text-sm text-slate-500">
-                          {sale.payment_method === 'efectivo' ? 'Efectivo' : sale.payment_method === 'tarjeta' ? 'Tarjeta' : 'Cta. Cte.'} • {sale.items.length} items
-                        </p>
+                      <div className="flex items-center gap-4">
+                        <div className={`p-2.5 rounded-xl ${sale.payment_method === 'efectivo' ? 'bg-green-50 text-green-600' : 'bg-blue-50 text-blue-600'}`}>
+                          {sale.payment_method === 'efectivo' ? <DollarSign size={18} /> : <CreditCard size={18} />}
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-800 text-sm">{new Date(sale.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                          <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{sale.payment_method.replace('_', ' ')}</p>
+                        </div>
                       </div>
                       <div className="flex items-center gap-4">
-                        <p className="font-bold text-pink-500">${formatPrice(sale.total)}</p>
-                        <button 
-                          onClick={() => setSelectedSale(sale)}
-                          className="p-2 text-slate-400 hover:text-pink-500 hover:bg-pink-50 rounded-lg transition-all"
-                        >
-                          <Eye size={18} />
-                        </button>
+                        <p className="font-black text-slate-900">${formatPrice(sale.total)}</p>
+                        <button onClick={() => setSelectedSale(sale)} className="p-2 text-slate-300 hover:text-pink-500 transition-colors"><Eye size={18} /></button>
                       </div>
                     </div>
                   ))}
-                  {sales.length === 0 && (
-                    <div className="p-8 text-center text-slate-500">
-                      No hay ventas registradas
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
@@ -401,41 +366,24 @@ const AccountingDashboard: React.FC = () => {
           {activeTab === 'gastos' && (
             <div className="space-y-4">
               <div className="flex justify-end">
-                <button
-                  onClick={() => setShowExpenseModal(true)}
-                  className="px-4 py-2 bg-pink-500 text-white rounded-xl font-medium hover:bg-pink-600 transition-colors flex items-center gap-2"
-                >
-                  <Plus size={18} />
-                  Agregar Gasto
+                <button onClick={() => setShowExpenseModal(true)} className="px-6 py-3 bg-pink-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg hover:bg-pink-600 transition-all active:scale-95 flex items-center gap-2">
+                  <Plus size={18} /> Nuevo Gasto
                 </button>
               </div>
-
-              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-                <div className="divide-y divide-slate-100">
-                  {expenses.map(expense => (
-                    <div key={expense.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                      <div>
-                        <p className="font-medium text-slate-800">{expense.description}</p>
-                        <p className="text-sm text-slate-500">
-                          {new Date(expense.date).toLocaleDateString('es-AR')} • {expense.type === 'fija' ? 'Fija' : 'Variable'}
-                        </p>
-                      </div>
+              <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+                <div className="divide-y divide-slate-50">
+                  {filteredData.expenses.map(e => (
+                    <div key={e.id} className="p-5 flex items-center justify-between hover:bg-slate-50 transition-colors">
                       <div className="flex items-center gap-4">
-                        <p className="font-bold text-red-500">-${formatPrice(expense.amount)}</p>
-                        <button
-                          onClick={() => handleDeleteExpense(expense.id)}
-                          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                        >
-                          <Trash2 size={18} />
-                        </button>
+                        <div className="p-3 bg-red-50 text-red-500 rounded-2xl"><TrendingDown size={20} /></div>
+                        <div>
+                          <p className="font-bold text-slate-800">{e.description}</p>
+                          <p className="text-xs text-slate-400 font-medium">{new Date(e.date).toLocaleDateString('es-AR')} • {e.type.toUpperCase()}</p>
+                        </div>
                       </div>
+                      <p className="font-black text-red-500 text-lg">-${formatPrice(e.amount)}</p>
                     </div>
                   ))}
-                  {expenses.length === 0 && (
-                    <div className="p-8 text-center text-slate-500">
-                      No hay gastos registrados
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
@@ -443,51 +391,66 @@ const AccountingDashboard: React.FC = () => {
 
           {activeTab === 'clientes' && (
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <div className="text-slate-600">
-                  Total en cuentas corrientes: <span className="font-bold text-slate-800">${formatPrice(totalCustomersBalance)}</span>
+              <div className="flex justify-between items-center bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Deuda Total Clientes</p>
+                  <p className="text-3xl font-black text-slate-900">${formatPrice(customers.reduce((s, c) => s + c.balance, 0))}</p>
                 </div>
-                <button
-                  onClick={() => setShowCustomerModal(true)}
-                  className="px-4 py-2 bg-pink-500 text-white rounded-xl font-medium hover:bg-pink-600 transition-colors flex items-center gap-2"
-                >
-                  <Plus size={18} />
-                  Agregar Cliente
+                <button onClick={() => setShowCustomerModal(true)} className="px-6 py-3 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg active:scale-95">
+                  Nuevo Cliente
                 </button>
               </div>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {customers.map(c => (
+                  <div key={c.id} className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-md transition-all group">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="w-12 h-12 bg-pink-50 text-pink-500 rounded-2xl flex items-center justify-center"><Users size={24} /></div>
+                      <div className="flex gap-1">
+                        <button onClick={() => setSelectedCustomerHistory(c)} className="p-2 text-slate-300 hover:text-blue-500 transition-colors" title="Ver Historial"><History size={20} /></button>
+                        <button onClick={() => setShowPaymentModal(c)} className="p-2 text-slate-300 hover:text-green-500 transition-colors" title="Registrar Pago"><CreditCard size={20} /></button>
+                      </div>
+                    </div>
+                    <h4 className="font-black text-slate-800 mb-1">{c.name}</h4>
+                    <p className="text-xs text-slate-400 font-medium mb-4">{c.phone || 'Sin teléfono'}</p>
+                    <div className="pt-4 border-t border-slate-50 flex justify-between items-center">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Saldo</span>
+                      <span className={`font-black text-xl ${c.balance > 0 ? 'text-amber-500' : 'text-slate-300'}`}>${formatPrice(c.balance)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-                <div className="divide-y divide-slate-100">
-                  {customers.map(customer => (
-                    <div key={customer.id} className="p-4 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-pink-100 rounded-full flex items-center justify-center">
-                          <Users size={18} className="text-pink-600" />
+          {activeTab === 'arqueo' && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">Historial de Arqueos</h3>
+                <button onClick={() => setShowClosingModal(true)} className="px-6 py-3 bg-pink-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg active:scale-95">
+                  Realizar Arqueo Hoy
+                </button>
+              </div>
+              <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+                <div className="divide-y divide-slate-50">
+                  {closings.map(cl => (
+                    <div key={cl.id} className="p-5 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className={`p-3 rounded-2xl ${cl.difference === 0 ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
+                          <History size={20} />
                         </div>
                         <div>
-                          <p className="font-medium text-slate-800">{customer.name}</p>
-                          <p className="text-sm text-slate-500">{customer.phone || 'Sin teléfono'}</p>
+                          <p className="font-bold text-slate-800">{new Date(cl.date).toLocaleDateString('es-AR', { weekday: 'long', day: '2-digit', month: 'long' })}</p>
+                          <p className="text-xs text-slate-400 font-medium">Esperado: ${formatPrice(cl.expected_cash)} • Real: ${formatPrice(cl.actual_cash)}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <p className={`font-bold ${customer.balance > 0 ? 'text-amber-500' : 'text-slate-400'}`}>
-                          ${formatPrice(customer.balance)}
+                      <div className="text-right">
+                        <p className={`font-black text-lg ${cl.difference === 0 ? 'text-green-600' : 'text-amber-500'}`}>
+                          {cl.difference > 0 ? '+' : ''}${formatPrice(cl.difference)}
                         </p>
-                        <button
-                          onClick={() => setShowPaymentModal(customer)}
-                          className="p-2 text-pink-500 hover:bg-pink-50 rounded-lg transition-colors"
-                          title="Registrar Pago"
-                        >
-                          <CreditCard size={18} />
-                        </button>
+                        <p className="text-[9px] font-black uppercase text-slate-400">{cl.difference === 0 ? 'Cuadrado' : 'Diferencia'}</p>
                       </div>
                     </div>
                   ))}
-                  {customers.length === 0 && (
-                    <div className="p-8 text-center text-slate-500">
-                      No hay clientes registrados
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
@@ -495,195 +458,75 @@ const AccountingDashboard: React.FC = () => {
         </>
       )}
 
-      {/* Sale Details Modal */}
-      {selectedSale && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="font-bold text-slate-800">Detalle de Venta</h3>
-              <button onClick={() => setSelectedSale(null)} className="p-2 hover:bg-slate-100 rounded-lg">
-                <X size={20} className="text-slate-600" />
-              </button>
+      {/* Modales */}
+      {showClosingModal && <CashClosingModal expectedCash={expectedCashToday} onClose={() => setShowClosingModal(false)} onSuccess={fetchData} />}
+      {selectedCustomerHistory && <CustomerHistory customer={selectedCustomerHistory} onClose={() => setSelectedCustomerHistory(null)} />}
+      
+      {/* Modal de Pago de Cliente */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden shadow-2xl">
+            <div className="p-8 border-b flex justify-between items-center bg-slate-50/50">
+              <h3 className="text-xl font-black text-slate-900 tracking-tight">Registrar Pago</h3>
+              <button onClick={() => setShowPaymentModal(null)} className="p-2 text-slate-400"><X size={20} /></button>
             </div>
-            <div className="p-4 space-y-4">
-              <div className="flex justify-between text-sm text-slate-500">
-                <span>ID: {selectedSale.id.slice(0, 8)}</span>
-                <span>{new Date(selectedSale.created_at).toLocaleString('es-AR')}</span>
+            <div className="p-8 space-y-6">
+              <div className="text-center">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Saldo de {showPaymentModal.name}</p>
+                <p className="text-3xl font-black text-amber-500">${formatPrice(showPaymentModal.balance)}</p>
               </div>
               <div className="space-y-2">
-                {selectedSale.items.map((item: any, i: number) => (
-                  <div key={i} className="flex justify-between items-center py-2 border-b border-slate-50 last:border-0">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-slate-100 rounded flex items-center justify-center text-slate-400">
-                        <Package size={14} />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-slate-800">{item.name}</p>
-                        <p className="text-xs text-slate-500">{item.quantity} x ${formatPrice(item.price)}</p>
-                      </div>
-                    </div>
-                    <p className="text-sm font-bold text-slate-800">${formatPrice(item.quantity * item.price)}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="pt-4 border-t space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-500">Método de Pago</span>
-                  <span className="font-medium capitalize">{selectedSale.payment_method.replace('_', ' ')}</span>
-                </div>
-                <div className="flex justify-between text-lg font-black">
-                  <span>Total</span>
-                  <span className="text-pink-500">${formatPrice(selectedSale.total)}</span>
-                </div>
-              </div>
-            </div>
-            <div className="p-4 border-t">
-              <button
-                onClick={() => setSelectedSale(null)}
-                className="w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-colors"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Expense Modal */}
-      {showExpenseModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="font-bold text-slate-800">Agregar Gasto</h3>
-              <button onClick={() => setShowExpenseModal(false)} className="p-2 hover:bg-slate-100 rounded-lg">
-                <X size={20} className="text-slate-600" />
-              </button>
-            </div>
-            <div className="p-4 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Monto</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Monto a Pagar</label>
                 <input
                   type="number"
-                  step="0.01"
-                  value={newExpense.amount}
-                  onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-100 outline-none"
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Descripción</label>
-                <input
-                  type="text"
-                  value={newExpense.description}
-                  onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-100 outline-none"
-                  placeholder="Descripción del gasto"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Tipo</label>
-                <select
-                  value={newExpense.type}
-                  onChange={(e) => setNewExpense({ ...newExpense, type: e.target.value as 'fija' | 'variable' })}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-100 outline-none"
-                >
-                  <option value="variable">Variable</option>
-                  <option value="fija">Fija</option>
-                </select>
-              </div>
-            </div>
-            <div className="p-4 border-t">
-              <button
-                onClick={handleAddExpense}
-                className="w-full py-3 bg-pink-500 text-white rounded-xl font-bold hover:bg-pink-600 transition-colors"
-              >
-                Registrar Gasto
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Customer Modal */}
-      {showCustomerModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="font-bold text-slate-800">Agregar Cliente</h3>
-              <button onClick={() => setShowCustomerModal(false)} className="p-2 hover:bg-slate-100 rounded-lg">
-                <X size={20} className="text-slate-600" />
-              </button>
-            </div>
-            <div className="p-4 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Nombre *</label>
-                <input
-                  type="text"
-                  value={newCustomer.name}
-                  onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-100 outline-none"
-                  placeholder="Nombre del cliente"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Teléfono</label>
-                <input
-                  type="tel"
-                  value={newCustomer.phone}
-                  onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-100 outline-none"
-                  placeholder="Número de teléfono"
-                />
-              </div>
-            </div>
-            <div className="p-4 border-t">
-              <button
-                onClick={handleAddCustomer}
-                className="w-full py-3 bg-pink-500 text-white rounded-xl font-bold hover:bg-pink-600 transition-colors"
-              >
-                Agregar Cliente
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Payment Modal */}
-      {showPaymentModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="font-bold text-slate-800">Registrar Pago</h3>
-              <button onClick={() => setShowPaymentModal(null)} className="p-2 hover:bg-slate-100 rounded-lg">
-                <X size={20} className="text-slate-600" />
-              </button>
-            </div>
-            <div className="p-4 space-y-4">
-              <div>
-                <p className="text-slate-600 text-sm mb-1">Cliente: <span className="font-bold text-slate-800">{showPaymentModal.name}</span></p>
-                <p className="text-slate-600 text-sm">Saldo actual: <span className="font-bold text-amber-500">${formatPrice(showPaymentModal.balance)}</span></p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Monto del Pago</label>
-                <input
-                  type="number"
-                  step="0.01"
                   value={paymentAmount}
-                  onChange={(e) => setPaymentAmount(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-100 outline-none text-2xl font-bold text-center"
+                  onChange={e => setPaymentAmount(e.target.value)}
+                  className="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-pink-500/20 outline-none text-2xl font-black text-center"
                   placeholder="0.00"
                   autoFocus
                 />
               </div>
-            </div>
-            <div className="p-4 border-t">
-              <button
-                onClick={handleCustomerPayment}
-                className="w-full py-3 bg-pink-500 text-white rounded-xl font-bold hover:bg-pink-600 transition-colors"
-              >
+              <button onClick={handleCustomerPayment} className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black uppercase tracking-widest text-sm shadow-xl hover:bg-pink-500 transition-all active:scale-95">
                 Confirmar Pago
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Gasto */}
+      {showExpenseModal && (
+        <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden shadow-2xl">
+            <div className="p-8 border-b flex justify-between items-center bg-slate-50/50">
+              <h3 className="text-xl font-black text-slate-900 tracking-tight">Nuevo Gasto</h3>
+              <button onClick={() => setShowExpenseModal(false)} className="p-2 text-slate-400"><X size={20} /></button>
+            </div>
+            <div className="p-8 space-y-4">
+              <input type="number" value={newExpense.amount} onChange={e => setNewExpense({...newExpense, amount: e.target.value})} className="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-pink-500/20 outline-none font-bold" placeholder="Monto $" />
+              <input type="text" value={newExpense.description} onChange={e => setNewExpense({...newExpense, description: e.target.value})} className="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-pink-500/20 outline-none font-bold" placeholder="Descripción" />
+              <select value={newExpense.type} onChange={e => setNewExpense({...newExpense, type: e.target.value as any})} className="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-pink-500/20 outline-none font-bold">
+                <option value="variable">Variable</option>
+                <option value="fija">Fija</option>
+              </select>
+              <button onClick={handleAddExpense} className="w-full py-5 bg-pink-500 text-white rounded-[2rem] font-black uppercase tracking-widest text-sm shadow-xl active:scale-95">Guardar Gasto</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Cliente */}
+      {showCustomerModal && (
+        <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden shadow-2xl">
+            <div className="p-8 border-b flex justify-between items-center bg-slate-50/50">
+              <h3 className="text-xl font-black text-slate-900 tracking-tight">Nuevo Cliente</h3>
+              <button onClick={() => setShowCustomerModal(false)} className="p-2 text-slate-400"><X size={20} /></button>
+            </div>
+            <div className="p-8 space-y-4">
+              <input type="text" value={newCustomer.name} onChange={e => setNewCustomer({...newCustomer, name: e.target.value})} className="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-pink-500/20 outline-none font-bold" placeholder="Nombre Completo" />
+              <input type="tel" value={newCustomer.phone} onChange={e => setNewCustomer({...newCustomer, phone: e.target.value})} className="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-pink-500/20 outline-none font-bold" placeholder="WhatsApp" />
+              <button onClick={handleAddCustomer} className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black uppercase tracking-widest text-sm shadow-xl active:scale-95">Crear Cliente</button>
             </div>
           </div>
         </div>

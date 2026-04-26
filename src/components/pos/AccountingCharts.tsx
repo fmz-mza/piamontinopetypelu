@@ -30,7 +30,7 @@ const AccountingCharts: React.FC<AccountingChartsProps> = ({ data }) => {
             />
             <Tooltip 
               contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-              formatter={(value: number, name: string) => [`$${value.toLocaleString()}`, name]}
+              formatter={(value: number) => `$${value.toLocaleString()}`}
               labelFormatter={(label) => `Fecha: ${label}`}
             />
             <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: '20px', fontSize: '12px' }} />
@@ -54,7 +54,7 @@ const AccountingCharts: React.FC<AccountingChartsProps> = ({ data }) => {
             />
             <Tooltip 
               contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-              formatter={(value: number, name: string) => [`$${value.toLocaleString()}`, name]}
+              formatter={(value: number) => `$${value.toLocaleString()}`}
               labelFormatter={(label) => `Fecha: ${label}`}
             />
             <Line type="monotone" dataKey="ventas" stroke="#ec4899" strokeWidth={3} dot={{ r: 4, fill: '#ec4899' }} activeDot={{ r: 6 }} name="Ventas" />

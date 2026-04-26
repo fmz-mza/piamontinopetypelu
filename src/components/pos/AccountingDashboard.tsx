@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
-import { DollarSign, TrendingUp, TrendingDown, Users, Plus, X, AlertCircle, CreditCard, Eye, Package, Trash2, FileText, Calendar, PieChart, History, ArrowRight } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, Users, Plus, X, AlertCircle, CreditCard, Eye, Package, Trash2, FileText, Calendar, PieChart, History, ArrowRight, ArrowRightLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -274,6 +274,26 @@ const AccountingDashboard: React.FC = () => {
     } catch (err) { toast.error('Error'); }
   };
 
+  const getPaymentIcon = (method: string) => {
+    switch (method) {
+      case 'efectivo': return <DollarSign size={18} />;
+      case 'tarjeta': return <CreditCard size={18} />;
+      case 'transferencia': return <ArrowRightLeft size={18} />;
+      case 'cuenta_corriente': return <Users size={18} />;
+      default: return <DollarSign size={18} />;
+    }
+  };
+
+  const getPaymentColor = (method: string) => {
+    switch (method) {
+      case 'efectivo': return 'bg-green-50 text-green-600';
+      case 'tarjeta': return 'bg-blue-50 text-blue-600';
+      case 'transferencia': return 'bg-purple-50 text-purple-600';
+      case 'cuenta_corriente': return 'bg-amber-50 text-amber-600';
+      default: return 'bg-slate-50 text-slate-600';
+    }
+  };
+
   const expectedCashToday = sales
     .filter(s => s.created_at.startsWith(new Date().toISOString().split('T')[0]) && s.payment_method === 'efectivo')
     .reduce((sum, s) => sum + s.total, 0);
@@ -378,8 +398,8 @@ const AccountingDashboard: React.FC = () => {
                   {filteredData.sales.slice(0, 8).map(sale => (
                     <div key={sale.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
                       <div className="flex items-center gap-4">
-                        <div className={`p-2.5 rounded-xl ${sale.payment_method === 'efectivo' ? 'bg-green-50 text-green-600' : 'bg-blue-50 text-blue-600'}`}>
-                          {sale.payment_method === 'efectivo' ? <DollarSign size={18} /> : <CreditCard size={18} />}
+                        <div className={`p-2.5 rounded-xl ${getPaymentColor(sale.payment_method)}`}>
+                          {getPaymentIcon(sale.payment_method)}
                         </div>
                         <div>
                           <p className="font-bold text-slate-800 text-sm">{new Date(sale.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
-import { Plus, Minus, Trash2, Barcode, Search, ShoppingCart, DollarSign, CreditCard, X, AlertCircle, Users, Scissors, ChevronUp, Power, Play, Percent, ChevronDown } from 'lucide-react';
+import { Plus, Minus, Trash2, Barcode, Search, ShoppingCart, DollarSign, CreditCard, X, AlertCircle, Users, Scissors, ChevronUp, Power, Play, Percent, ChevronDown, ArrowRightLeft } from 'lucide-react';
 import Scanner from '../shared/Scanner';
 import OpenCashModal from './OpenCashModal';
 import CashClosingModal from './CashClosingModal';
@@ -44,7 +44,7 @@ const SalesTerminal: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showScanner, setShowScanner] = useState(false);
   const [isConfigured, setIsConfigured] = useState(true);
-  const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'tarjeta' | 'cuenta_corriente'>('efectivo');
+  const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'tarjeta' | 'cuenta_corriente' | 'transferencia'>('efectivo');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [showCheckout, setShowCheckout] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -499,11 +499,16 @@ const SalesTerminal: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                {['efectivo', 'tarjeta', 'cuenta_corriente'].map(m => (
-                  <button key={m} onClick={() => setPaymentMethod(m as any)} className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all active:scale-95 ${paymentMethod === m ? 'border-pink-500 bg-pink-50 text-pink-600' : 'border-slate-100 text-slate-400 hover:border-slate-200'}`}>
-                    {m === 'efectivo' ? <DollarSign size={24} /> : m === 'tarjeta' ? <CreditCard size={24} /> : <Users size={24} />}
-                    <span className="text-[9px] font-black uppercase tracking-widest">{m.replace('_', ' ')}</span>
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { id: 'efectivo', icon: DollarSign, label: 'Efectivo' },
+                  { id: 'tarjeta', icon: CreditCard, label: 'Tarjeta' },
+                  { id: 'transferencia', icon: ArrowRightLeft, label: 'Transf.' },
+                  { id: 'cuenta_corriente', icon: Users, label: 'Cta. Cte.' }
+                ].map(m => (
+                  <button key={m.id} onClick={() => setPaymentMethod(m.id as any)} className={`p-3 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all active:scale-95 ${paymentMethod === m.id ? 'border-pink-500 bg-pink-50 text-pink-600' : 'border-slate-100 text-slate-400 hover:border-slate-200'}`}>
+                    <m.icon size={20} />
+                    <span className="text-[8px] font-black uppercase tracking-widest">{m.label}</span>
                   </button>
                 ))}
               </div>

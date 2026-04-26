@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Plus, Trash2, User, Phone, Building2, Search, X, Save } from 'lucide-react';
+import { Plus, Trash2, User, Phone, Building2, Search, X, Save, DollarSign, Edit, List } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Supplier {
@@ -11,6 +11,7 @@ interface Supplier {
   phone: string;
   company: string;
   created_at: string;
+  balance: number;
 }
 
 const SupplierManager: React.FC = () => {
@@ -19,6 +20,12 @@ const SupplierManager: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({ name: '', phone: '', company: '' });
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+  const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isStatementModalOpen, setIsStatementModalOpen] = useState(false);
+  const [statementData, setStatementData] = useState<any[]>([]);
+  const [statementLoading, setStatementLoading] = useState(false);
 
   useEffect(() => {
     fetchSuppliers();
@@ -26,7 +33,7 @@ const SupplierManager: React.FC = () => {
 
   const fetchSuppliers = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from('suppliers').select('*').order('name');
+    const { data, error } = await supabase.from('suppliers').select('*, balance').order('name');
     if (error) toast.error('Error al cargar proveedores');
     else setSuppliers(data || []);
     setLoading(false);
@@ -54,6 +61,38 @@ const SupplierManager: React.FC = () => {
     const { error } = await supabase.from('suppliers').delete().eq('id', id);
     if (error) toast.error('Error al eliminar');
     else fetchSuppliers();
+  };
+
+  const handleOpenPurchaseModal = (supplier: Supplier) => {
+    setSelectedSupplier(supplier);
+    setIsPurchaseModalOpen(true);
+  };
+
+  const handleOpenPaymentModal = (supplier: Supplier) => {
+    setSelectedSupplier(supplier);
+    setIsPaymentModalOpen(true);
+  };
+
+  const handleOpenStatementModal = (supplier: Supplier) => {
+    setSelectedSupplier(supplier);
+    setIsStatementModalOpen(true);
+    fetchStatement(supplier.id);
+  };
+
+  const fetchStatement = async (supplierId: string) => {
+    setStatementLoading(true);
+    const { data, error } = await supabase
+      .from('supplier_transactions')
+      .select('*')
+      .eq('supplier_id', supplierId)
+      .order('date', { ascending: false });
+    if (error) {
+      toast.error('Error al cargar estado de cuenta');
+      setStatementData([]);
+    } else {
+      setStatementData(data || []);
+    }
+    setStatementLoading(false);
   };
 
   const filtered = suppliers.filter(s => 
@@ -104,11 +143,36 @@ const SupplierManager: React.FC = () => {
                 <Phone size={14} className="text-pink-500" />
                 <span>{s.phone || 'Sin teléfono'}</span>
               </div>
+              <div className="flex items-center gap-2 text-sm text-slate-500">
+                <DollarSign size={14} className="text-green-500" />
+                <span className="font-medium">{s.balance >= 0 ? `$${s.balance.toFixed(2)}` : `-$${Math.abs(s.balance).toFixed(2)}`}</span>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => handleOpenPurchaseModal(s)}
+                className="flex-1 px-3 py-2 bg-blue-500 text-white text-xs rounded-[1.5rem] hover:bg-blue-600 transition-all"
+              >
+                Registrar Compra
+              </button>
+              <button 
+                onClick={() => handleOpenPaymentModal(s)}
+                className="flex-1 px-3 py-2 bg-green-500 text-white text-xs rounded-[1.5rem] hover:bg-green-600 transition-all"
+              >
+                Registrar Pago
+              </button>
+              <button 
+                onClick={() => handleOpenStatementModal(s)}
+                className="flex-1 px-3 py-2 bg-purple-500 text-white text-xs rounded-[1.5rem] hover:bg-purple-600 transition-all"
+              >
+                Estado de Cuenta
+              </button>
             </div>
           </div>
         ))}
       </div>
 
+      {/* Modals */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] w-full max-w-md overflow-hidden shadow-2xl">
@@ -152,6 +216,104 @@ const SupplierManager: React.FC = () => {
                 className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black uppercase tracking-widest text-sm shadow-xl hover:bg-pink-500 transition-all active:scale-95"
               >
                 Guardar Proveedor
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Purchase Modal */}
+      {isPurchaseModalOpen && (
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-[500px] overflow-hidden shadow-2xl">
+            <div className="p-8 border-b flex justify-between items-center bg-slate-50/50">
+              <h3 className="text-2xl font-black text-slate-900 tracking-tight">Registrar Compra</h3>
+              <button onClick={() => setIsPurchaseModalOpen(false)} className="p-2 text-slate-400"><X size={24} /></button>
+            </div>
+            <div className="p-8 space-y-5">
+              <PurchaseModal 
+                supplier={selectedSupplier!}
+                onClose={() => setIsPurchaseModalOpen(false)}
+                onSuccess={() => {
+                  setIsPurchaseModalOpen(false);
+                  fetchSuppliers();
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Modal */}
+      {isPaymentModalOpen && (
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-md overflow-hidden shadow-2xl">
+            <div className="p-8 border-b flex justify-between items-center bg-slate-50/50">
+              <h3 className="text-2xl font-black text-slate-900 tracking-tight">Registrar Pago</h3>
+              <button onClick={() => setIsPaymentModalOpen(false)} className="p-2 text-slate-400"><X size={24} /></button>
+            </div>
+            <div className="p-8 space-y-5">
+              <PaymentModal 
+                supplier={selectedSupplier!}
+                onClose={() => setIsPaymentModalOpen(false)}
+                onSuccess={() => {
+                  setIsPaymentModalOpen(false);
+                  fetchSuppliers();
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Statement Modal */}
+      {isStatementModalOpen && (
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-[600px] h-[80vh] overflow-hidden shadow-2xl flex flex-col">
+            <div className="p-8 border-b flex justify-between items-center bg-slate-50/50">
+              <h3 className="text-2xl font-black text-slate-900 tracking-tight">Estado de Cuenta</h3>
+              <button onClick={() => setIsStatementModalOpen(false)} className="p-2 text-slate-400"><X size={24} /></button>
+            </div>
+            <div className="p-8 flex-1 overflow-y-auto">
+              {selectedSupplier && (
+                <>
+                  <div className="mb-6">
+                    <h4 className="font-bold text-slate-800">{selectedSupplier.name}</h4>
+                    <p className="text-slate-500">Balance actual: {selectedSupplier.balance >= 0 ? `$${selectedSupplier.balance.toFixed(2)}` : `-$${Math.abs(selectedSupplier.balance).toFixed(2)}`}</p>
+                  </div>
+                  {statementLoading ? (
+                    <div className="text-center py-8"><div className="animate-spin w-8 h-8 border-4 border-pink-500 border-t-transparent rounded-full mx-auto" /></div>
+                  ) : (
+                    <div className="space-y-4">
+                      {statementData.length === 0 ? (
+                        <p className="text-center text-slate-500">No hay transacciones para este proveedor.</p>
+                      ) : (
+                        <div className="space-y-4">
+                          {statementData.map((tx: any, index: number) => (
+                            <div key={tx.id} className="border-l-2 border-pink-500 pl-4">
+                              <div className="flex justify-between items-start mb-1">
+                                <span className="text-sm text-slate-500">{new Date(tx.date).toLocaleDateString()}</span>
+                                <span className="text-sm font-medium">{tx.type === 'compra' ? 'Compra' : 'Pago'}</span>
+                              </div>
+                              <p className="text-slate-600">{tx.description}</p>
+                              <div className="flex justify-between items-baseline mt-1">
+                                <span className="text-sm font-medium">{tx.type === 'compra' ? `-$${tx.amount.toFixed(2)}` : `+$${tx.amount.toFixed(2)}`}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+            <div className="p-6 border-t bg-slate-50">
+              <button 
+                onClick={() => setIsStatementModalOpen(false)}
+                className="w-full py-3 bg-slate-900 text-white rounded-[2rem] font-black uppercase tracking-widest text-sm shadow-xl hover:bg-pink-500 transition-all active:scale-95"
+              >
+                Cerrar
               </button>
             </div>
           </div>

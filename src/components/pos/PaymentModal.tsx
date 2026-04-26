@@ -2,17 +2,18 @@
 
 import React, { useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { X, DollarSign, Save, FileText } from 'lucide-react';
+import { X, DollarSign, Save, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface PaymentModalProps {
-  supplier: { id: string; name: string };
+  supplier: { id: string; name: string; balance: number };
   onClose: () => void;
   onSuccess: () => void;
 }
 
 const PaymentModal: React.FC<PaymentModalProps> = ({ supplier, onClose, onSuccess }) => {
-  const [amount, setAmount] = useState('');
+  // Pre-completamos con el balance (deuda) del proveedor
+  const [amount, setAmount] = useState(supplier.balance > 0 ? supplier.balance.toString() : '');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -48,7 +49,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ supplier, onClose, onSucces
       if (fetchError) throw fetchError;
 
       const currentBalance = supplierData?.balance || 0;
-      const newBalance = currentBalance - paymentAmount; // Reduce debt (balance is debt)
+      const newBalance = currentBalance - paymentAmount;
 
       const { error: balanceError } = await supabase
         .from('suppliers')
@@ -57,7 +58,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ supplier, onClose, onSucces
 
       if (balanceError) throw balanceError;
 
-      // 3. Insert into expenses (category: 'Mercadería')
+      // 3. Insert into expenses
       const { error: expenseError } = await supabase
         .from('expenses')
         .insert([{
@@ -83,11 +84,19 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ supplier, onClose, onSucces
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1.5">
-        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-          Proveedor
-        </label>
-        <p className="font-bold text-slate-800">{supplier.name}</p>
+      <div className="flex justify-between items-start">
+        <div className="space-y-1">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+            Proveedor
+          </label>
+          <p className="font-bold text-slate-800">{supplier.name}</p>
+        </div>
+        <div className="text-right space-y-1">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-1">
+            Deuda Total
+          </label>
+          <p className="font-black text-red-500 text-lg">${supplier.balance.toLocaleString()}</p>
+        </div>
       </div>
 
       <div className="space-y-1.5">
@@ -105,6 +114,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ supplier, onClose, onSucces
             autoFocus
           />
         </div>
+        {supplier.balance > 0 && parseFloat(amount) === supplier.balance && (
+          <div className="flex items-center gap-2 text-[10px] text-green-600 font-bold uppercase mt-1 ml-1">
+            <AlertCircle size={12} /> Saldando deuda total
+          </div>
+        )}
       </div>
 
       <div className="space-y-1.5">
@@ -115,7 +129,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ supplier, onClose, onSucces
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           className="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-pink-500/20 outline-none resize-none h-24 font-medium"
-          placeholder="Ej: Pago parcial, Pago total..."
+          placeholder="Ej: Pago total de factura..."
         />
       </div>
 
@@ -129,7 +143,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ supplier, onClose, onSucces
         <button
           onClick={handleSave}
           disabled={saving || !amount}
-          className="flex-1 py-3 bg-green-500 text-white rounded-2xl font-bold text-sm hover:bg-green-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+          className="flex-1 py-3 bg-green-500 text-white rounded-2xl font-bold text-sm hover:bg-green-600 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
         >
           {saving ? (
             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

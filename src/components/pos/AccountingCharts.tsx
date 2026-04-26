@@ -14,6 +14,11 @@ interface AccountingChartsProps {
 }
 
 const AccountingCharts: React.FC<AccountingChartsProps> = ({ data }) => {
+  const formatCurrency = (value?: number) => {
+    if (value === undefined || value === null) return '';
+    return `$${value.toLocaleString()}`;
+  };
+
   return (
     <div className="grid lg:grid-cols-2 gap-6">
       <div className="bg-white p-6 rounded-2xl border border-slate-200 h-[350px]">
@@ -22,7 +27,12 @@ const AccountingCharts: React.FC<AccountingChartsProps> = ({ data }) => {
           <BarChart data={data}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
             <XAxis dataKey="date" fontSize={10} tickMargin={10} axisLine={false} tickLine={false} />
-            <YAxis fontSize={10} axisLine={false} tickLine={false} tickFormatter={(value) => `$${value}`} />
+            <YAxis 
+              fontSize={10} 
+              axisLine={false} 
+              tickLine={false} 
+              tickFormatter={(value) => `$${value}`} 
+            />
             <Tooltip 
               contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
               formatter={(value: number) => [`$${value.toLocaleString()}`, '']}
@@ -40,7 +50,12 @@ const AccountingCharts: React.FC<AccountingChartsProps> = ({ data }) => {
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
             <XAxis dataKey="date" fontSize={10} tickMargin={10} axisLine={false} tickLine={false} />
-            <YAxis fontSize={10} axisLine={false} tickLine={false} tickFormatter={(value) => `$${value}`} />
+            <YAxis 
+              fontSize={10} 
+              axisLine={false} 
+              tickLine={false} 
+              tickFormatter={(value) => `$${value}`} 
+            />
             <Tooltip 
               contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
               formatter={(value: number) => [`$${value.toLocaleString()}`, '']}

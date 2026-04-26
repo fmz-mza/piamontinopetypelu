@@ -56,7 +56,7 @@ const About = () => {
     { icon: <Clock size={20} />, label: "15+ Años", sub: "De experiencia" },
     { icon: <Heart size={20} />, label: "1000+", sub: "Mascotas felices" },
     { icon: <Shield size={20} />, label: "Calidad", sub: "Garantizada" },
-    { icon: <Award size={20} />, label: "Expertos", sub: "Certificados" }
+    { icon: <Award size={20} />, label: "Expertos", sub: "CUIDANDO MASCOTAS" }
   ];
 
   return (

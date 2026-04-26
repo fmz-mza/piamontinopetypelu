@@ -12,8 +12,7 @@ import CustomerHistory from './CustomerHistory';
 
 // ... (todas las definiciones de interfaces y hooks previas) ...
 
-// MANTENEMOS LA FUNCIÓN formatPrice EXPORTADA PARA QUE OTROS COMPONENTES PUEDAN USARLAexport const formatPrice = (price: number) => {
-  return price.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-};
+// MANTENEMOS LA FUNCIÓN formatPrice EXPORTADA PARA QUE OTROS COMPONENTES PUEDAN USARLA
+export const formatPrice = (price: number) => price.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
 // ... (el resto del componente AccountingDashboard permanece sin cambios) ...

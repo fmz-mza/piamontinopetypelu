@@ -97,7 +97,6 @@ const AccountingDashboard: React.FC = () => {
     }
   };
 
-  // Filtros de Fecha Avanzados
   const filteredData = useMemo(() => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -120,21 +119,16 @@ const AccountingDashboard: React.FC = () => {
     };
   }, [sales, expenses, dateRange]);
 
-  // Cálculo de Margen Real (Utilidad Bruta)
-  // Nota: En una app real, el costo se guardaría en la venta. Aquí lo estimamos o simulamos un margen del 30% si no hay datos.
   const stats = useMemo(() => {
     const totalSales = filteredData.sales.reduce((sum, s) => sum + s.total, 0);
     const totalExpenses = filteredData.expenses.reduce((sum, e) => sum + e.amount, 0);
-    
-    // Simulación de margen: En un sistema real, iteraríamos items y restaríamos su costo guardado
-    const estimatedCost = totalSales * 0.65; // Asumimos costo del 65%
+    const estimatedCost = totalSales * 0.65;
     const grossProfit = totalSales - estimatedCost;
     const netProfit = totalSales - totalExpenses;
 
     return { totalSales, totalExpenses, grossProfit, netProfit };
   }, [filteredData]);
 
-  // Datos para Gráficos
   const chartData = useMemo(() => {
     const last7Days = [...Array(7)].map((_, i) => {
       const d = new Date();
@@ -232,6 +226,22 @@ const AccountingDashboard: React.FC = () => {
     } catch (err) { toast.error('Error'); }
   };
 
+  const handleAddCustomer = async () => {
+    if (!newCustomer.name) return;
+    try {
+      const { error } = await supabase.from('customers').insert([{
+        name: newCustomer.name,
+        phone: newCustomer.phone,
+        balance: 0
+      }]);
+      if (error) throw error;
+      toast.success('Cliente creado');
+      setShowCustomerModal(false);
+      setNewCustomer({ name: '', phone: '' });
+      fetchData();
+    } catch (err) { toast.error('Error al crear cliente'); }
+  };
+
   const handleCustomerPayment = async () => {
     if (!showPaymentModal || !paymentAmount) return;
     const amount = parseFloat(paymentAmount);
@@ -263,7 +273,6 @@ const AccountingDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header & Advanced Filters */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200">
         <div className="flex gap-1 bg-slate-50 p-1 rounded-xl overflow-x-auto no-scrollbar">
           {[
@@ -310,7 +319,6 @@ const AccountingDashboard: React.FC = () => {
         <>
           {activeTab === 'resumen' && (
             <div className="space-y-6">
-              {/* Stats Grid with Real Margin */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ventas Brutas</p>
@@ -332,10 +340,8 @@ const AccountingDashboard: React.FC = () => {
                 </div>
               </div>
 
-              {/* Trend Charts */}
               <AccountingCharts data={chartData} />
 
-              {/* Recent Sales */}
               <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
                 <div className="p-6 border-b flex justify-between items-center">
                   <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">Últimas Operaciones</h3>
@@ -458,11 +464,9 @@ const AccountingDashboard: React.FC = () => {
         </>
       )}
 
-      {/* Modales */}
       {showClosingModal && <CashClosingModal expectedCash={expectedCashToday} onClose={() => setShowClosingModal(false)} onSuccess={fetchData} />}
       {selectedCustomerHistory && <CustomerHistory customer={selectedCustomerHistory} onClose={() => setSelectedCustomerHistory(null)} />}
       
-      {/* Modal de Pago de Cliente */}
       {showPaymentModal && (
         <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden shadow-2xl">
@@ -494,7 +498,6 @@ const AccountingDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Modal de Gasto */}
       {showExpenseModal && (
         <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden shadow-2xl">
@@ -515,7 +518,6 @@ const AccountingDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Modal de Cliente */}
       {showCustomerModal && (
         <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden shadow-2xl">

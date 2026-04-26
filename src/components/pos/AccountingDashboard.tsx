@@ -5,7 +5,7 @@ import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { DollarSign, TrendingUp, TrendingDown, Users, Plus, X, AlertCircle, CreditCard, Eye, Package, Trash2, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 interface Sale {
   id: string;
@@ -78,35 +78,40 @@ const AccountingDashboard: React.FC = () => {
   };
 
   const generatePDF = () => {
-    const doc = new jsPDF();
-    const today = new Date().toLocaleDateString();
-    
-    doc.setFontSize(20);
-    doc.text('Reporte de Ventas - Piamontino', 14, 22);
-    doc.setFontSize(10);
-    doc.text(`Fecha de generación: ${today}`, 14, 30);
+    try {
+      const doc = new jsPDF();
+      const today = new Date().toLocaleDateString();
+      
+      doc.setFontSize(20);
+      doc.text('Reporte de Ventas - Piamontino', 14, 22);
+      doc.setFontSize(10);
+      doc.text(`Fecha de generación: ${today}`, 14, 30);
 
-    const tableData = sales.map(sale => [
-      new Date(sale.created_at).toLocaleDateString(),
-      sale.payment_method.toUpperCase(),
-      `$${formatPrice(sale.total)}`
-    ]);
+      const tableData = sales.map(sale => [
+        new Date(sale.created_at).toLocaleDateString(),
+        sale.payment_method.toUpperCase(),
+        `$${formatPrice(sale.total)}`
+      ]);
 
-    (doc as any).autoTable({
-      startY: 40,
-      head: [['Fecha', 'Método', 'Total']],
-      body: tableData,
-      theme: 'striped',
-      headStyles: { fillColor: [236, 72, 153] }
-    });
+      autoTable(doc, {
+        startY: 40,
+        head: [['Fecha', 'Método', 'Total']],
+        body: tableData,
+        theme: 'striped',
+        headStyles: { fillColor: [236, 72, 153] }
+      });
 
-    const total = sales.reduce((sum, s) => sum + s.total, 0);
-    const finalY = (doc as any).lastAutoTable.finalY || 40;
-    doc.setFontSize(12);
-    doc.text(`Total Acumulado: $${formatPrice(total)}`, 14, finalY + 10);
+      const total = sales.reduce((sum, s) => sum + s.total, 0);
+      const finalY = (doc as any).lastAutoTable?.finalY || 40;
+      doc.setFontSize(12);
+      doc.text(`Total Acumulado: $${formatPrice(total)}`, 14, finalY + 10);
 
-    doc.save(`reporte-ventas-${today}.pdf`);
-    toast.success('PDF generado correctamente');
+      doc.save(`reporte-ventas-${today}.pdf`);
+      toast.success('PDF generado correctamente');
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      toast.error('Error al generar el PDF');
+    }
   };
 
   const handleAddExpense = async () => {

@@ -11,8 +11,6 @@ import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import AccountingCharts from './AccountingCharts';
-import CashClosingModal from './CashClosingModal';
-import CustomerHistory from './CustomerHistory';
 
 export const formatPrice = (price: number) => 
   price.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -24,6 +22,15 @@ interface DashboardStats {
   activeCustomers: number;
 }
 
+interface Movement {
+  id: string;
+  date: string;
+  type: 'venta' | 'gasto';
+  amount: number;
+  description: string;
+  method?: string;
+}
+
 const AccountingDashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats>({
     totalSales: 0,
@@ -31,6 +38,7 @@ const AccountingDashboard: React.FC = () => {
     customerBalance: 0,
     activeCustomers: 0
   });
+  const [recentMovements, setRecentMovements] = useState<Movement[]>([]);
   const [loading, setLoading] = useState(true);
   const [chartData, setChartData] = useState<any[]>([]);
   const [isConfigured, setIsConfigured] = useState(true);
@@ -47,13 +55,17 @@ const AccountingDashboard: React.FC = () => {
     setLoading(true);
     try {
       const [salesRes, expensesRes, customersRes] = await Promise.all([
-        supabase.from('sales').select('total, created_at'),
-        supabase.from('expenses').select('amount, date'),
+        supabase.from('sales').select('id, total, created_at, payment_method').order('created_at', { ascending: false }).limit(10),
+        supabase.from('expenses').select('id, amount, date, description, type').order('date', { ascending: false }).limit(10),
         supabase.from('customers').select('balance')
       ]);
 
-      const totalSales = (salesRes.data || []).reduce((acc, s) => acc + Number(s.total), 0);
-      const totalExpenses = (expensesRes.data || []).reduce((acc, e) => acc + Number(e.amount), 0);
+      // Calcular totales generales (esto idealmente vendría de una consulta agregada, pero lo hacemos así por simplicidad)
+      const { data: allSales } = await supabase.from('sales').select('total');
+      const { data: allExpenses } = await supabase.from('expenses').select('amount');
+      
+      const totalSales = (allSales || []).reduce((acc, s) => acc + Number(s.total), 0);
+      const totalExpenses = (allExpenses || []).reduce((acc, e) => acc + Number(e.amount), 0);
       const customerBalance = (customersRes.data || []).reduce((acc, c) => acc + Number(c.balance), 0);
       const activeCustomers = (customersRes.data || []).length;
 
@@ -64,6 +76,28 @@ const AccountingDashboard: React.FC = () => {
         activeCustomers
       });
 
+      // Combinar movimientos recientes
+      const movements: Movement[] = [
+        ...(salesRes.data || []).map(s => ({
+          id: s.id,
+          date: s.created_at,
+          type: 'venta' as const,
+          amount: s.total,
+          description: 'Venta de productos/servicios',
+          method: s.payment_method
+        })),
+        ...(expensesRes.data || []).map(e => ({
+          id: e.id,
+          date: e.date,
+          type: 'gasto' as const,
+          amount: e.amount,
+          description: e.description,
+          method: e.type
+        }))
+      ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 10);
+
+      setRecentMovements(movements);
+
       // Procesar datos para el gráfico (últimos 7 días)
       const last7Days = Array.from({ length: 7 }, (_, i) => {
         const d = new Date();
@@ -72,11 +106,11 @@ const AccountingDashboard: React.FC = () => {
       }).reverse();
 
       const dailyData = last7Days.map(date => {
-        const daySales = (salesRes.data || [])
-          .filter(s => s.created_at.startsWith(date))
+        const daySales = (allSales || [])
+          .filter((s: any) => s.created_at?.startsWith(date))
           .reduce((acc, s) => acc + Number(s.total), 0);
-        const dayExpenses = (expensesRes.data || [])
-          .filter(e => e.date === date)
+        const dayExpenses = (allExpenses || [])
+          .filter((e: any) => e.date === date)
           .reduce((acc, e) => acc + Number(e.amount), 0);
         
         return {
@@ -181,12 +215,48 @@ const AccountingDashboard: React.FC = () => {
       <AccountingCharts data={chartData} />
 
       <div className="grid lg:grid-cols-2 gap-8">
-        {/* Aquí irían las listas de gastos recientes o clientes con deuda */}
         <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
           <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
             <History size={24} className="text-pink-500" /> Movimientos Recientes
           </h3>
-          <p className="text-slate-400 text-center py-8 font-medium">Cargando historial detallado...</p>
+          
+          <div className="space-y-4">
+            {loading ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin w-8 h-8 border-4 border-pink-500 border-t-transparent rounded-full" />
+              </div>
+            ) : recentMovements.length === 0 ? (
+              <p className="text-slate-400 text-center py-8 font-medium">No hay movimientos registrados</p>
+            ) : (
+              recentMovements.map(m => (
+                <div key={m.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <div className="flex items-center gap-4">
+                    <div className={`p-3 rounded-xl ${m.type === 'venta' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                      {m.type === 'venta' ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-800 text-sm">{m.description}</p>
+                      <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">
+                        {new Date(m.date).toLocaleDateString('es-AR')} • {m.method || 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className={`font-black text-lg ${m.type === 'venta' ? 'text-green-600' : 'text-red-600'}`}>
+                      {m.type === 'venta' ? '+' : '-'}${formatPrice(m.amount)}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+          <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
+            <PieChart size={24} className="text-blue-500" /> Resumen por Categoría
+          </h3>
+          <p className="text-slate-400 text-center py-8 font-medium">Próximamente: Análisis detallado de gastos por categoría.</p>
         </div>
       </div>
     </div>

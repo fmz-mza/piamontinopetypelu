@@ -14,11 +14,6 @@ interface AccountingChartsProps {
 }
 
 const AccountingCharts: React.FC<AccountingChartsProps> = ({ data }) => {
-  const formatCurrency = (value?: number) => {
-    if (value === undefined || value === null) return '';
-    return `$${value.toLocaleString()}`;
-  };
-
   return (
     <div className="grid lg:grid-cols-2 gap-6">
       <div className="bg-white p-6 rounded-2xl border border-slate-200 h-[350px]">
@@ -35,7 +30,8 @@ const AccountingCharts: React.FC<AccountingChartsProps> = ({ data }) => {
             />
             <Tooltip 
               contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-              formatter={(value: number) => [`$${value.toLocaleString()}`, '']}
+              formatter={(value: number, name: string) => [`$${value.toLocaleString()}`, name]}
+              labelFormatter={(label) => `Fecha: ${label}`}
             />
             <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: '20px', fontSize: '12px' }} />
             <Bar dataKey="ventas" fill="#ec4899" radius={[4, 4, 0, 0]} name="Ventas" />
@@ -58,7 +54,8 @@ const AccountingCharts: React.FC<AccountingChartsProps> = ({ data }) => {
             />
             <Tooltip 
               contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-              formatter={(value: number) => [`$${value.toLocaleString()}`, '']}
+              formatter={(value: number, name: string) => [`$${value.toLocaleString()}`, name]}
+              labelFormatter={(label) => `Fecha: ${label}`}
             />
             <Line type="monotone" dataKey="ventas" stroke="#ec4899" strokeWidth={3} dot={{ r: 4, fill: '#ec4899' }} activeDot={{ r: 6 }} name="Ventas" />
           </LineChart>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { Plus, Minus, Trash2, Barcode, Search, ShoppingCart, DollarSign, CreditCard, X, AlertCircle, Users, Scissors, ChevronUp, Power, Play, Percent } from 'lucide-react';
 import Scanner from '../shared/Scanner';
@@ -55,35 +55,35 @@ const SalesTerminal: React.FC = () => {
 
   // Estado de Caja
   const [activeSession, setActiveSession] = useState<any>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showClosedWarning, setShowClosedWarning] = useState(false);
 
-  useEffect(() => {
-    setIsConfigured(isSupabaseConfigured());
-    if (isSupabaseConfigured()) {
-      fetchData();
-      checkCashSession();
+  const checkCashSession = useCallback(async () => {
+    setCheckingSession(true);
+    try {
+      const { data } = await supabase
+        .from('cash_sessions')
+        .select('*')
+        .eq('status', 'open')
+        .maybeSingle();
+      
+      setActiveSession(data || null);
+      // Solo mostramos el warning si no hay sesión activa
+      if (!data) {
+        setShowClosedWarning(true);
+      } else {
+        setShowClosedWarning(false);
+      }
+    } catch (err) {
+      console.error('Error checking session:', err);
+    } finally {
+      setCheckingSession(false);
     }
   }, []);
 
-  const checkCashSession = async () => {
-    const { data } = await supabase
-      .from('cash_sessions')
-      .select('*')
-      .eq('status', 'open')
-      .maybeSingle();
-    
-    if (data) {
-      setActiveSession(data);
-      setShowClosedWarning(false);
-    } else {
-      setActiveSession(null);
-      setShowClosedWarning(true);
-    }
-  };
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const [prodRes, servRes, custRes] = await Promise.all([
@@ -99,7 +99,16 @@ const SalesTerminal: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const configured = isSupabaseConfigured();
+    setIsConfigured(configured);
+    if (configured) {
+      fetchData();
+      checkCashSession();
+    }
+  }, [fetchData, checkCashSession]);
 
   const addToCart = (item: any, isService = false) => {
     if (!activeSession) {
@@ -215,6 +224,8 @@ const SalesTerminal: React.FC = () => {
     return price.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   };
 
+  if (!isConfigured) return <div className="p-6 bg-amber-50 rounded-2xl">Configurá Supabase</div>;
+
   return (
     <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-10rem)] lg:h-[calc(100vh-8rem)] relative">
       {/* Status Bar */}
@@ -222,17 +233,19 @@ const SalesTerminal: React.FC = () => {
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${activeSession ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
           <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-            Caja: {activeSession ? 'Abierta' : 'Cerrada'}
+            Caja: {checkingSession ? 'Verificando...' : activeSession ? 'Abierta' : 'Cerrada'}
           </span>
         </div>
-        {activeSession ? (
-          <button onClick={() => setShowCloseModal(true)} className="text-[10px] font-black uppercase tracking-widest text-red-500 hover:underline flex items-center gap-1">
-            <Power size={12} /> Cerrar Caja
-          </button>
-        ) : (
-          <button onClick={() => setShowOpenModal(true)} className="text-[10px] font-black uppercase tracking-widest text-green-600 hover:underline flex items-center gap-1">
-            <Play size={12} /> Abrir Caja
-          </button>
+        {!checkingSession && (
+          activeSession ? (
+            <button onClick={() => setShowCloseModal(true)} className="text-[10px] font-black uppercase tracking-widest text-red-500 hover:underline flex items-center gap-1">
+              <Power size={12} /> Cerrar Caja
+            </button>
+          ) : (
+            <button onClick={() => setShowOpenModal(true)} className="text-[10px] font-black uppercase tracking-widest text-green-600 hover:underline flex items-center gap-1">
+              <Play size={12} /> Abrir Caja
+            </button>
+          )
         )}
       </div>
 
@@ -351,7 +364,7 @@ const SalesTerminal: React.FC = () => {
       {showCloseModal && <CashClosingModal expectedCash={activeSession?.opening_balance || 0} sessionId={activeSession?.id} onClose={() => setShowCloseModal(false)} onSuccess={checkCashSession} />}
       
       {/* Modal Caja Cerrada Warning */}
-      {showClosedWarning && (
+      {!checkingSession && showClosedWarning && (
         <div className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in duration-300">
             <div className="p-8 text-center space-y-6">

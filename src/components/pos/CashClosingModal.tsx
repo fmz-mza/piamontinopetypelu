@@ -2,16 +2,17 @@
 
 import React, { useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { X, DollarSign, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { X, DollarSign, AlertCircle, CheckCircle2, Power } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface CashClosingModalProps {
   expectedCash: number;
+  sessionId?: string;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-const CashClosingModal: React.FC<CashClosingModalProps> = ({ expectedCash, onClose, onSuccess }) => {
+const CashClosingModal: React.FC<CashClosingModalProps> = ({ expectedCash, sessionId, onClose, onSuccess }) => {
   const [actualCash, setActualCash] = useState('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,7 +27,9 @@ const CashClosingModal: React.FC<CashClosingModalProps> = ({ expectedCash, onClo
     setLoading(true);
     try {
       const difference = actual - expectedCash;
-      const { error } = await supabase
+      
+      // 1. Guardar el arqueo
+      const { error: closingError } = await supabase
         .from('cash_closings')
         .insert([{
           expected_cash: expectedCash,
@@ -36,8 +39,23 @@ const CashClosingModal: React.FC<CashClosingModalProps> = ({ expectedCash, onClo
           date: new Date().toISOString().split('T')[0]
         }]);
 
-      if (error) throw error;
-      toast.success('Cierre de caja guardado');
+      if (closingError) throw closingError;
+
+      // 2. Si hay una sesión activa, cerrarla
+      if (sessionId) {
+        const { error: sessionError } = await supabase
+          .from('cash_sessions')
+          .update({
+            closed_at: new Date().toISOString(),
+            closing_balance: actual,
+            status: 'closed'
+          })
+          .eq('id', sessionId);
+        
+        if (sessionError) throw sessionError;
+      }
+
+      toast.success('Caja cerrada correctamente');
       onSuccess();
       onClose();
     } catch (err) {
@@ -51,10 +69,10 @@ const CashClosingModal: React.FC<CashClosingModalProps> = ({ expectedCash, onClo
   const difference = (parseFloat(actualCash) || 0) - expectedCash;
 
   return (
-    <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-white rounded-[2.5rem] w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in duration-300">
         <div className="p-8 border-b flex justify-between items-center bg-slate-50/50">
-          <h3 className="text-2xl font-black text-slate-900 tracking-tight">Cierre de Caja</h3>
+          <h3 className="text-2xl font-black text-slate-900 tracking-tight">Cerrar Caja</h3>
           <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600"><X size={24} /></button>
         </div>
 
@@ -102,9 +120,9 @@ const CashClosingModal: React.FC<CashClosingModalProps> = ({ expectedCash, onClo
           <button
             onClick={handleSave}
             disabled={loading || !actualCash}
-            className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black uppercase tracking-widest text-sm shadow-xl hover:bg-pink-500 transition-all active:scale-95 disabled:opacity-50"
+            className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black uppercase tracking-widest text-sm shadow-xl hover:bg-red-500 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {loading ? 'Guardando...' : 'Confirmar Cierre'}
+            {loading ? 'Cerrando...' : <><Power size={18} /> Finalizar Turno</>}
           </button>
         </div>
       </div>

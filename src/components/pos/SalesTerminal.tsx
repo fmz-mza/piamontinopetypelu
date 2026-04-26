@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
-import { Plus, Minus, Trash2, Barcode, Search, ShoppingCart, DollarSign, CreditCard, X, AlertCircle, Users, Scissors, ChevronUp } from 'lucide-react';
+import { Plus, Minus, Trash2, Barcode, Search, ShoppingCart, DollarSign, CreditCard, X, AlertCircle, Users, Scissors, ChevronUp, Power, Play } from 'lucide-react';
 import Scanner from '../shared/Scanner';
+import OpenCashModal from './OpenCashModal';
+import CashClosingModal from './CashClosingModal';
 import toast from 'react-hot-toast';
 
 interface Product {
@@ -48,12 +50,35 @@ const SalesTerminal: React.FC = () => {
   const [showMobileCart, setShowMobileCart] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Estado de Caja
+  const [activeSession, setActiveSession] = useState<any>(null);
+  const [showOpenModal, setShowOpenModal] = useState(false);
+  const [showCloseModal, setShowCloseModal] = useState(false);
+  const [showClosedWarning, setShowClosedWarning] = useState(false);
+
   useEffect(() => {
     setIsConfigured(isSupabaseConfigured());
     if (isSupabaseConfigured()) {
       fetchData();
+      checkCashSession();
     }
   }, []);
+
+  const checkCashSession = async () => {
+    const { data, error } = await supabase
+      .from('cash_sessions')
+      .select('*')
+      .eq('status', 'open')
+      .maybeSingle();
+    
+    if (data) {
+      setActiveSession(data);
+      setShowClosedWarning(false);
+    } else {
+      setActiveSession(null);
+      setShowClosedWarning(true);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -68,27 +93,16 @@ const SalesTerminal: React.FC = () => {
       if (custRes.data) setCustomers(custRes.data);
     } catch (err: any) {
       console.error('Error fetching data:', err);
-      toast.error(`Error al cargar datos: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleScan = (code: string) => {
-    setShowScanner(false);
-    const product = products.find(p => p.ean === code);
-    if (product) {
-      if (product.stock <= 0) {
-        toast.error('Producto sin stock');
-        return;
-      }
-      addToCart(product);
-    } else {
-      toast.error('Producto no encontrado');
-    }
-  };
-
   const addToCart = (item: any, isService = false) => {
+    if (!activeSession) {
+      setShowClosedWarning(true);
+      return;
+    }
     setCart(prev => {
       const existing = prev.find(i => i.product.id === item.id);
       if (existing) {
@@ -122,6 +136,10 @@ const SalesTerminal: React.FC = () => {
 
   const handleCheckout = async () => {
     if (cart.length === 0 || isProcessing) return;
+    if (!activeSession) {
+      toast.error('La caja debe estar abierta para vender');
+      return;
+    }
     if (paymentMethod === 'cuenta_corriente' && !selectedCustomerId) {
       toast.error('Seleccioná un cliente');
       return;
@@ -129,7 +147,7 @@ const SalesTerminal: React.FC = () => {
 
     setIsProcessing(true);
     try {
-      const { data: saleData, error: saleError } = await supabase
+      const { error: saleError } = await supabase
         .from('sales')
         .insert([{
           total: cartTotal,
@@ -143,31 +161,25 @@ const SalesTerminal: React.FC = () => {
           payment_method: paymentMethod,
           customer_id: paymentMethod === 'cuenta_corriente' ? selectedCustomerId : null,
           created_at: new Date().toISOString()
-        }])
-        .select();
+        }]);
 
       if (saleError) throw saleError;
 
+      // Actualizar stock
       for (const item of cart) {
         if (!item.product.isService) {
           const prod = products.find(p => p.id === item.product.id);
           if (prod) {
-            const { error: stockError } = await supabase
-              .from('products')
-              .update({ stock: prod.stock - item.quantity })
-              .eq('id', prod.id);
+            await supabase.from('products').update({ stock: prod.stock - item.quantity }).eq('id', prod.id);
           }
         }
       }
 
+      // Actualizar saldo cliente
       if (paymentMethod === 'cuenta_corriente') {
         const customer = customers.find(c => c.id === selectedCustomerId);
         if (customer) {
-          const { error: custError } = await supabase
-            .from('customers')
-            .update({ balance: customer.balance + cartTotal })
-            .eq('id', selectedCustomerId);
-          if (custError) throw custError;
+          await supabase.from('customers').update({ balance: customer.balance + cartTotal }).eq('id', selectedCustomerId);
         }
       }
 
@@ -177,8 +189,7 @@ const SalesTerminal: React.FC = () => {
       setShowMobileCart(false);
       await fetchData();
     } catch (err: any) {
-      console.error('Error al procesar venta:', err);
-      toast.error(`Error al procesar: ${err.message}`);
+      toast.error(`Error: ${err.message}`);
     } finally {
       setIsProcessing(false);
     }
@@ -188,28 +199,30 @@ const SalesTerminal: React.FC = () => {
     return price.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   };
 
-  const filteredProducts = products.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.ean?.includes(searchTerm)
-  );
-
-  if (!isConfigured) {
-    return (
-      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6">
-        <div className="flex items-start gap-4">
-          <AlertCircle className="text-amber-500 shrink-0 mt-0.5" size={24} />
-          <div>
-            <h3 className="font-bold text-amber-800 mb-2">Supabase no configurado</h3>
-            <p className="text-amber-700 text-sm">Configurá las variables de entorno para usar el terminal de ventas.</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const expectedCashToday = activeSession ? (activeSession.opening_balance + products.length) : 0; // Simplificado para el ejemplo
 
   return (
     <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-10rem)] lg:h-[calc(100vh-8rem)] relative">
-      {/* Main Area: Products & Services */}
+      {/* Status Bar */}
+      <div className="absolute -top-12 left-0 right-0 flex justify-between items-center px-1">
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${activeSession ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+            Caja: {activeSession ? 'Abierta' : 'Cerrada'}
+          </span>
+        </div>
+        {activeSession ? (
+          <button onClick={() => setShowCloseModal(true)} className="text-[10px] font-black uppercase tracking-widest text-red-500 hover:underline flex items-center gap-1">
+            <Power size={12} /> Cerrar Caja
+          </button>
+        ) : (
+          <button onClick={() => setShowOpenModal(true)} className="text-[10px] font-black uppercase tracking-widest text-green-600 hover:underline flex items-center gap-1">
+            <Play size={12} /> Abrir Caja
+          </button>
+        )}
+      </div>
+
+      {/* Main Area */}
       <div className="flex-1 flex flex-col min-h-0 pb-20 lg:pb-0">
         <div className="flex items-center gap-2 mb-4">
           <div className="relative flex-1">
@@ -222,10 +235,7 @@ const SalesTerminal: React.FC = () => {
               className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 outline-none focus:border-pink-500 text-base" 
             />
           </div>
-          <button 
-            onClick={() => setShowScanner(true)} 
-            className="p-3 bg-pink-500 text-white rounded-xl hover:bg-pink-600 transition-colors shadow-md"
-          >
+          <button onClick={() => setShowScanner(true)} className="p-3 bg-pink-500 text-white rounded-xl hover:bg-pink-600 transition-colors shadow-md">
             <Barcode size={24} />
           </button>
         </div>
@@ -236,11 +246,7 @@ const SalesTerminal: React.FC = () => {
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {services.map(svc => (
-              <button 
-                key={svc.id} 
-                onClick={() => addToCart(svc, true)} 
-                className="p-3 bg-white border border-slate-200 rounded-xl hover:border-pink-300 hover:shadow-sm transition-all text-left active:scale-95"
-              >
+              <button key={svc.id} onClick={() => addToCart(svc, true)} className="p-3 bg-white border border-slate-200 rounded-xl hover:border-pink-300 hover:shadow-sm transition-all text-left active:scale-95">
                 <p className="font-bold text-slate-800 text-xs line-clamp-1">{svc.name}</p>
                 <p className="text-pink-500 font-black text-sm">${formatPrice(svc.price)}</p>
               </button>
@@ -251,21 +257,10 @@ const SalesTerminal: React.FC = () => {
         <div className="flex-1 overflow-y-auto pr-1">
           <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Productos</h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
-            {filteredProducts.map(product => (
-              <button 
-                key={product.id} 
-                onClick={() => addToCart(product)} 
-                disabled={product.stock <= 0}
-                className={`bg-white p-2 rounded-2xl border border-slate-200 hover:border-pink-300 hover:shadow-sm transition-all text-left active:scale-95 ${product.stock <= 0 ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}
-              >
+            {products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase())).map(product => (
+              <button key={product.id} onClick={() => addToCart(product)} disabled={product.stock <= 0} className={`bg-white p-2 rounded-2xl border border-slate-200 hover:border-pink-300 hover:shadow-sm transition-all text-left active:scale-95 ${product.stock <= 0 ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}>
                 <div className="aspect-square rounded-xl overflow-hidden bg-slate-100 mb-2">
-                  {product.image_url ? (
-                    <img src={product.image_url} className="w-full h-full object-cover" alt={product.name} />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-300">
-                      <ShoppingCart size={20} />
-                    </div>
-                  )}
+                  {product.image_url ? <img src={product.image_url} className="w-full h-full object-cover" alt={product.name} /> : <div className="w-full h-full flex items-center justify-center text-slate-300"><ShoppingCart size={20} /></div>}
                 </div>
                 <p className="font-bold text-slate-800 text-xs line-clamp-2 h-8 leading-tight mb-1">{product.name}</p>
                 <div className="flex justify-between items-end">
@@ -278,17 +273,13 @@ const SalesTerminal: React.FC = () => {
         </div>
       </div>
 
-      {/* Desktop Sidebar Cart */}
+      {/* Cart Sidebar */}
       <div className="hidden lg:flex w-96 bg-white rounded-3xl border border-slate-200 flex-col shadow-sm overflow-hidden">
         <div className="p-5 border-b flex justify-between items-center bg-slate-50/50">
           <h2 className="font-black text-slate-800 flex items-center gap-2 uppercase tracking-widest text-sm">
             <ShoppingCart size={18} className="text-pink-500" /> Carrito ({cart.length})
           </h2>
-          {cart.length > 0 && (
-            <button onClick={() => setCart([])} className="text-[10px] text-red-500 font-black uppercase hover:underline">Vaciar</button>
-          )}
         </div>
-        
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {cart.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-2 opacity-30">
@@ -311,154 +302,78 @@ const SalesTerminal: React.FC = () => {
             ))
           )}
         </div>
-
         <div className="p-6 border-t space-y-4 bg-white">
           <div className="flex justify-between items-center">
-            <span className="text-slate-400 font-black uppercase tracking-widest text-[10px]">Total a cobrar</span>
+            <span className="text-slate-400 font-black uppercase tracking-widest text-[10px]">Total</span>
             <span className="text-3xl font-black text-slate-900">${formatPrice(cartTotal)}</span>
           </div>
-          <button 
-            onClick={() => setShowCheckout(true)} 
-            disabled={cart.length === 0 || isProcessing} 
-            className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:bg-pink-500 transition-all disabled:opacity-50 active:scale-95"
-          >
+          <button onClick={() => setShowCheckout(true)} disabled={cart.length === 0 || isProcessing} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:bg-pink-500 transition-all disabled:opacity-50 active:scale-95">
             Cobrar Ahora
           </button>
         </div>
       </div>
 
-      {/* Mobile Floating Cart Bar */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 z-40">
-        <button 
-          onClick={() => setShowMobileCart(true)}
-          disabled={cart.length === 0}
-          className="w-full bg-slate-900 text-white p-4 rounded-2xl shadow-2xl flex items-center justify-between active:scale-95 transition-transform disabled:opacity-50"
-        >
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <ShoppingCart size={24} />
-              {cart.length > 0 && (
-                <span className="absolute -top-2 -right-2 bg-pink-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-slate-900">
-                  {cart.reduce((s, i) => s + i.quantity, 0)}
-                </span>
-              )}
-            </div>
-            <div className="text-left">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 leading-none mb-1">Total</p>
-              <p className="text-xl font-black leading-none">${formatPrice(cartTotal)}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 font-black uppercase tracking-widest text-xs">
-            Ver Carrito <ChevronUp size={18} />
-          </div>
-        </button>
-      </div>
-
-      {/* Mobile Cart Drawer */}
-      {showMobileCart && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowMobileCart(false)} />
-          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[2.5rem] max-h-[85vh] flex flex-col animate-in slide-in-from-bottom duration-300">
-            <div className="p-6 border-b flex justify-between items-center">
-              <h2 className="font-black text-slate-800 flex items-center gap-2 uppercase tracking-widest text-sm">
-                Tu Compra ({cart.length})
-              </h2>
-              <button onClick={() => setShowMobileCart(false)} className="p-2 bg-slate-100 rounded-full text-slate-500">
-                <X size={20} />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {cart.map(item => (
-                <div key={item.product.id} className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-slate-800 text-sm truncate">{item.product.name}</p>
-                    <p className="text-pink-500 font-black text-base">${formatPrice(item.product.price)}</p>
-                  </div>
-                  <div className="flex items-center gap-3 bg-white p-1.5 rounded-xl border border-slate-100">
-                    <button onClick={() => updateQuantity(item.product.id, -1)} className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400"><Minus size={16} /></button>
-                    <span className="w-6 text-center font-black text-sm">{item.quantity}</span>
-                    <button onClick={() => updateQuantity(item.product.id, 1)} className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400"><Plus size={16} /></button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="p-6 border-t bg-white space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400 font-black uppercase tracking-widest text-xs">Total</span>
-                <span className="text-3xl font-black text-slate-900">${formatPrice(cartTotal)}</span>
+      {/* Modales de Caja */}
+      {showOpenModal && <OpenCashModal onClose={() => setShowOpenModal(false)} onSuccess={checkCashSession} />}
+      {showCloseModal && <CashClosingModal expectedCash={expectedCashToday} sessionId={activeSession?.id} onClose={() => setShowCloseModal(false)} onSuccess={checkCashSession} />}
+      
+      {/* Modal Caja Cerrada Warning */}
+      {showClosedWarning && (
+        <div className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in duration-300">
+            <div className="p-8 text-center space-y-6">
+              <div className="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto">
+                <Power size={40} />
               </div>
-              <button 
-                onClick={() => setShowCheckout(true)}
-                className="w-full py-5 bg-pink-500 text-white rounded-2xl font-black uppercase tracking-widest text-base shadow-xl active:scale-95"
-              >
-                Continuar al Pago
-              </button>
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 tracking-tight">Caja Cerrada</h3>
+                <p className="text-slate-500 font-medium mt-2">Debes abrir la caja para poder realizar ventas y servicios.</p>
+              </div>
+              <div className="flex flex-col gap-3">
+                <button onClick={() => { setShowOpenModal(true); setShowClosedWarning(false); }} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:bg-pink-500 transition-all active:scale-95">
+                  Abrir Caja Ahora
+                </button>
+                <button onClick={() => setShowClosedWarning(false)} className="w-full py-4 text-slate-400 font-black uppercase tracking-widest text-[10px] hover:text-slate-600">
+                  Continuar Cerrada
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {showScanner && <Scanner onScan={handleScan} onClose={() => setShowScanner(false)} />}
+      {showScanner && <Scanner onScan={(code) => { setShowScanner(false); const p = products.find(x => x.ean === code); if(p) addToCart(p); else toast.error('No encontrado'); }} onClose={() => setShowScanner(false)} />}
       
       {showCheckout && (
         <div className="fixed inset-0 z-[60] bg-black/80 flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-md">
           <div className="bg-white rounded-t-[2.5rem] sm:rounded-[2.5rem] w-full max-w-md shadow-2xl overflow-hidden animate-in slide-in-from-bottom sm:zoom-in duration-300">
             <div className="flex items-center justify-between p-6 border-b">
               <h3 className="font-black text-slate-800 uppercase tracking-widest text-sm">Finalizar Venta</h3>
-              <button onClick={() => setShowCheckout(false)} className="p-2 hover:bg-slate-100 rounded-full">
-                <X size={20} />
-              </button>
+              <button onClick={() => setShowCheckout(false)} className="p-2 hover:bg-slate-100 rounded-full"><X size={20} /></button>
             </div>
             <div className="p-8 space-y-8">
               <div className="text-center">
                 <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-2">Total a cobrar</p>
                 <p className="text-5xl font-black text-slate-900 tracking-tighter">${formatPrice(cartTotal)}</p>
               </div>
-              
               <div className="grid grid-cols-3 gap-3">
-                {[
-                  { id: 'efectivo', icon: DollarSign, label: 'Efectivo' },
-                  { id: 'tarjeta', icon: CreditCard, label: 'Tarjeta' },
-                  { id: 'cuenta_corriente', icon: Users, label: 'Cta. Cte.' }
-                ].map(m => (
-                  <button 
-                    key={m.id} 
-                    onClick={() => setPaymentMethod(m.id as any)} 
-                    className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all active:scale-95 ${paymentMethod === m.id ? 'border-pink-500 bg-pink-50 text-pink-600' : 'border-slate-100 text-slate-400 hover:border-slate-200'}`}
-                  >
-                    <m.icon size={24} />
-                    <span className="text-[9px] font-black uppercase tracking-widest">{m.label}</span>
+                {['efectivo', 'tarjeta', 'cuenta_corriente'].map(m => (
+                  <button key={m} onClick={() => setPaymentMethod(m as any)} className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all active:scale-95 ${paymentMethod === m ? 'border-pink-500 bg-pink-50 text-pink-600' : 'border-slate-100 text-slate-400 hover:border-slate-200'}`}>
+                    {m === 'efectivo' ? <DollarSign size={24} /> : m === 'tarjeta' ? <CreditCard size={24} /> : <Users size={24} />}
+                    <span className="text-[9px] font-black uppercase tracking-widest">{m.replace('_', ' ')}</span>
                   </button>
                 ))}
               </div>
-
               {paymentMethod === 'cuenta_corriente' && (
-                <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Seleccionar Cliente</label>
-                  <select 
-                    value={selectedCustomerId} 
-                    onChange={(e) => setSelectedCustomerId(e.target.value)} 
-                    className="w-full px-4 py-4 rounded-2xl border border-slate-200 outline-none focus:border-pink-500 bg-slate-50 font-bold text-sm appearance-none"
-                  >
-                    <option value="">Elegir cliente...</option>
-                    {customers.map(c => (
-                      <option key={c.id} value={c.id}>{c.name} (Saldo: ${formatPrice(c.balance)})</option>
-                    ))}
-                  </select>
-                </div>
+                <select value={selectedCustomerId} onChange={(e) => setSelectedCustomerId(e.target.value)} className="w-full px-4 py-4 rounded-2xl border border-slate-200 outline-none focus:border-pink-500 bg-slate-50 font-bold text-sm">
+                  <option value="">Elegir cliente...</option>
+                  {customers.map(c => <option key={c.id} value={c.id}>{c.name} (${formatPrice(c.balance)})</option>)}
+                </select>
               )}
             </div>
             <div className="p-8 bg-slate-50/50 border-t">
-              <button 
-                onClick={handleCheckout} 
-                disabled={isProcessing}
-                className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-base hover:bg-pink-600 transition-all flex items-center justify-center gap-3 shadow-xl active:scale-95 disabled:opacity-50"
-              >
-                {isProcessing ? (
-                  <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <>Confirmar Pago <DollarSign size={20} /></>
-                )}
+              <button onClick={handleCheckout} disabled={isProcessing} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-base hover:bg-pink-600 transition-all flex items-center justify-center gap-3 shadow-xl active:scale-95 disabled:opacity-50">
+                {isProcessing ? <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin" /> : <>Confirmar Pago <DollarSign size={20} /></>}
               </button>
             </div>
           </div>

@@ -54,15 +54,16 @@ const AccountingDashboard: React.FC = () => {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
+      // Consultas para movimientos recientes
       const [salesRes, expensesRes, customersRes] = await Promise.all([
         supabase.from('sales').select('id, total, created_at, payment_method').order('created_at', { ascending: false }).limit(10),
         supabase.from('expenses').select('id, amount, date, description, type').order('date', { ascending: false }).limit(10),
         supabase.from('customers').select('balance')
       ]);
 
-      // Calcular totales generales (esto idealmente vendría de una consulta agregada, pero lo hacemos así por simplicidad)
-      const { data: allSales } = await supabase.from('sales').select('total');
-      const { data: allExpenses } = await supabase.from('expenses').select('amount');
+      // Consultas para totales y gráficos (incluyendo fechas)
+      const { data: allSales } = await supabase.from('sales').select('total, created_at');
+      const { data: allExpenses } = await supabase.from('expenses').select('amount, date');
       
       const totalSales = (allSales || []).reduce((acc, s) => acc + Number(s.total), 0);
       const totalExpenses = (allExpenses || []).reduce((acc, e) => acc + Number(e.amount), 0);

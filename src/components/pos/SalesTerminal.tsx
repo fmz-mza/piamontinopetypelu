@@ -43,7 +43,7 @@ const SalesTerminal: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showScanner, setShowScanner] = useState(false);
-  const [isConfigured, setIsConfigured] = useState(true);
+  const [isConfigured] = useState(() => isSupabaseConfigured());
   const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'tarjeta' | 'cuenta_corriente' | 'transferencia'>('efectivo');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [showCheckout, setShowCheckout] = useState(false);
@@ -106,13 +106,11 @@ const SalesTerminal: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const configured = isSupabaseConfigured();
-    setIsConfigured(configured);
-    if (configured) {
+    if (isConfigured) {
       fetchData();
       checkCashSession();
     }
-  }, [fetchData, checkCashSession]);
+  }, [fetchData, checkCashSession, isConfigured]);
 
   const addToCart = (item: any, isService = false) => {
     if (!activeSession) {
@@ -171,7 +169,6 @@ const SalesTerminal: React.FC = () => {
       setShowCustomerModal(false);
       setNewCustomer({ name: '', phone: '' });
       
-      // Refrescar lista y seleccionar al nuevo cliente
       await fetchData();
       if (data && data[0]) {
         setSelectedCustomerId(data[0].id);
@@ -253,7 +250,7 @@ const SalesTerminal: React.FC = () => {
     return price.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   };
 
-  const CartContent = () => (
+  const renderCartContent = () => (
     <div className="flex flex-col h-full">
       <div className="p-5 border-b flex justify-between items-center bg-slate-50/50">
         <h2 className="font-black text-slate-800 flex items-center gap-2 uppercase tracking-widest text-sm">
@@ -391,7 +388,7 @@ const SalesTerminal: React.FC = () => {
 
       {/* Desktop Cart Sidebar */}
       <div className="hidden lg:flex w-96 bg-white rounded-3xl border border-slate-200 flex-col shadow-sm overflow-hidden">
-        <CartContent />
+        {renderCartContent()}
       </div>
 
       {/* Mobile Cart Summary Bar */}
@@ -426,7 +423,7 @@ const SalesTerminal: React.FC = () => {
               <div className="w-12 h-1.5 bg-slate-200 rounded-full" onClick={() => setShowMobileCart(false)} />
             </div>
             <div className="flex-1 overflow-hidden">
-              <CartContent />
+              {renderCartContent()}
             </div>
             <button 
               onClick={() => setShowMobileCart(false)}

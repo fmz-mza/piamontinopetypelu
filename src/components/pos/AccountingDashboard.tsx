@@ -5,13 +5,16 @@ import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { 
   DollarSign, TrendingUp, TrendingDown, Users, Plus, X, 
   AlertCircle, CreditCard, Eye, Package, Trash2, FileText, 
-  Calendar, PieChart, History, ArrowRightLeft 
+  Calendar, PieChart, History, ArrowRightLeft, LayoutDashboard,
+  Receipt, Wallet, ClipboardList
 } from 'lucide-react';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import AccountingCharts from './AccountingCharts';
+import ExpenseManager from './ExpenseManager';
+import CashClosingHistory from './CashClosingHistory';
 
 export const formatPrice = (price: number) => 
   price.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -35,6 +38,11 @@ interface Movement {
 const COLORS = ['#ec4899', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#64748b'];
 
 const AccountingDashboard: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'resumen' | 'gastos' | 'cierres'>('resumen');
+  const [dateRange, setDateRange] = useState({
+    start: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0],
+    end: new Date().toISOString().split('T')[0]
+  });
   const [stats, setStats] = useState<DashboardStats>({
     totalSales: 0,
     totalExpenses: 0,
@@ -53,24 +61,30 @@ const AccountingDashboard: React.FC = () => {
     if (configured) {
       fetchDashboardData();
     }
-  }, []);
+  }, [dateRange]);
 
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const [salesRes, expensesRes, customersRes] = await Promise.all([
-        supabase.from('sales').select('id, total, created_at, payment_method').order('created_at', { ascending: false }).limit(10),
-        supabase.from('expenses').select('id, amount, date, description, type, category').order('date', { ascending: false }).limit(10),
-        supabase.from('customers').select('balance')
-      ]);
+      // Filtros de fecha para las queries
+      const { data: allSales } = await supabase
+        .from('sales')
+        .select('total, created_at, payment_method')
+        .gte('created_at', `${dateRange.start}T00:00:00`)
+        .lte('created_at', `${dateRange.end}T23:59:59`);
 
-      const { data: allSales } = await supabase.from('sales').select('total, created_at');
-      const { data: allExpenses } = await supabase.from('expenses').select('amount, date, category');
+      const { data: allExpenses } = await supabase
+        .from('expenses')
+        .select('amount, date, category, description, type')
+        .gte('date', dateRange.start)
+        .lte('date', dateRange.end);
+
+      const { data: customersRes } = await supabase.from('customers').select('balance');
       
       const totalSales = (allSales || []).reduce((acc, s) => acc + Number(s.total), 0);
       const totalExpenses = (allExpenses || []).reduce((acc, e) => acc + Number(e.amount), 0);
-      const customerBalance = (customersRes.data || []).reduce((acc, c) => acc + Number(c.balance), 0);
-      const activeCustomers = (customersRes.data || []).length;
+      const customerBalance = (customersRes || []).reduce((acc, c) => acc + Number(c.balance), 0);
+      const activeCustomers = (customersRes || []).length;
 
       setStats({
         totalSales,
@@ -79,62 +93,63 @@ const AccountingDashboard: React.FC = () => {
         activeCustomers
       });
 
-      // Procesar datos por categoría para el gráfico de torta
+      // Procesar datos por categoría
       const catMap: Record<string, number> = {};
       (allExpenses || []).forEach(e => {
         const cat = e.category || 'Sin Categoría';
         catMap[cat] = (catMap[cat] || 0) + Number(e.amount);
       });
       
-      const processedCatData = Object.entries(catMap).map(([name, value]) => ({ name, value }));
-      setCategoryData(processedCatData);
+      setCategoryData(Object.entries(catMap).map(([name, value]) => ({ name, value })));
 
+      // Movimientos combinados
       const movements: Movement[] = [
-        ...(salesRes.data || []).map(s => ({
-          id: s.id,
+        ...(allSales || []).map((s: any) => ({
+          id: Math.random().toString(),
           date: s.created_at,
           type: 'venta' as const,
           amount: s.total,
-          description: 'Venta de productos/servicios',
+          description: 'Venta POS',
           method: s.payment_method
         })),
-        ...(expensesRes.data || []).map(e => ({
-          id: e.id,
+        ...(allExpenses || []).map((e: any) => ({
+          id: Math.random().toString(),
           date: e.date,
           type: 'gasto' as const,
           amount: e.amount,
           description: e.description,
-          method: e.type
+          method: e.category
         }))
-      ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 10);
+      ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 15);
 
       setRecentMovements(movements);
 
-      const last7Days = Array.from({ length: 7 }, (_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        return d.toISOString().split('T')[0];
-      }).reverse();
-
-      const dailyData = last7Days.map(date => {
+      // Datos para el gráfico de tendencia (últimos 7 días del rango seleccionado)
+      const dailyData = [];
+      let curr = new Date(dateRange.start);
+      const end = new Date(dateRange.end);
+      
+      while (curr <= end) {
+        const dStr = curr.toISOString().split('T')[0];
         const daySales = (allSales || [])
-          .filter((s: any) => s.created_at?.startsWith(date))
+          .filter((s: any) => s.created_at?.startsWith(dStr))
           .reduce((acc, s) => acc + Number(s.total), 0);
         const dayExpenses = (allExpenses || [])
-          .filter((e: any) => e.date === date)
+          .filter((e: any) => e.date === dStr)
           .reduce((acc, e) => acc + Number(e.amount), 0);
         
-        return {
-          date: date.split('-').slice(1).reverse().join('/'),
+        dailyData.push({
+          date: dStr.split('-').slice(1).reverse().join('/'),
           ventas: daySales,
           gastos: dayExpenses
-        };
-      });
-
+        });
+        curr.setDate(curr.getDate() + 1);
+        if (dailyData.length > 31) break; // Limitar a un mes para el gráfico
+      }
       setChartData(dailyData);
+
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
-      toast.error('Error al cargar datos contables');
     } finally {
       setLoading(false);
     }
@@ -143,163 +158,157 @@ const AccountingDashboard: React.FC = () => {
   const exportToPDF = () => {
     const doc = new jsPDF();
     doc.setFontSize(20);
-    doc.text('Reporte Contable - Piamontino', 14, 22);
-    doc.setFontSize(12);
-    doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 14, 30);
+    doc.text('Reporte Financiero - Piamontino', 14, 22);
+    doc.setFontSize(10);
+    doc.text(`Rango: ${dateRange.start} al ${dateRange.end}`, 14, 30);
 
     autoTable(doc, {
       startY: 40,
       head: [['Concepto', 'Monto']],
       body: [
-        ['Total Ventas', `$${formatPrice(stats.totalSales)}`],
-        ['Total Gastos', `$${formatPrice(stats.totalExpenses)}`],
-        ['Saldo Clientes (Cta Cte)', `$${formatPrice(stats.customerBalance)}`],
-        ['Balance Neto', `$${formatPrice(stats.totalSales - stats.totalExpenses)}`]
+        ['Ingresos por Ventas', `$${formatPrice(stats.totalSales)}`],
+        ['Egresos por Gastos', `$${formatPrice(stats.totalExpenses)}`],
+        ['Saldo en Cta Cte Clientes', `$${formatPrice(stats.customerBalance)}`],
+        ['Resultado Neto', `$${formatPrice(stats.totalSales - stats.totalExpenses)}`]
       ],
+      theme: 'striped',
+      headStyles: { fillStyle: 'pink' }
     });
 
-    doc.save('reporte-contable.pdf');
-    toast.success('Reporte PDF generado');
+    doc.save(`reporte-piamontino-${dateRange.end}.pdf`);
+    toast.success('Reporte generado');
   };
 
-  if (!isConfigured) {
-    return (
-      <div className="p-8 text-center">
-        <AlertCircle className="mx-auto text-amber-500 mb-4" size={48} />
-        <h2 className="text-xl font-bold">Supabase no configurado</h2>
-        <p className="text-slate-500">Por favor, configura las variables de entorno para ver la gestión.</p>
-      </div>
-    );
-  }
+  if (!isConfigured) return <div className="p-8 text-center">Configurá Supabase</div>;
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      {/* Header & Global Filters */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Gestión Contable</h1>
-          <p className="text-slate-500 font-medium">Resumen financiero y control de caja</p>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Gestión Financiera</h1>
+          <p className="text-slate-500 font-medium">Control total de ingresos, egresos y arqueos</p>
         </div>
-        <button 
-          onClick={exportToPDF}
-          className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl font-bold hover:bg-pink-600 transition-all shadow-xl active:scale-95"
-        >
-          <FileText size={20} /> Exportar Reporte
-        </button>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm">
-          <div className="w-12 h-12 bg-pink-100 text-pink-600 rounded-2xl flex items-center justify-center mb-4">
-            <TrendingUp size={24} />
+        
+        <div className="flex flex-wrap items-center gap-3 bg-white p-2 rounded-[2rem] border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-2 px-4 py-2 border-r border-slate-100">
+            <Calendar size={16} className="text-slate-400" />
+            <input 
+              type="date" 
+              value={dateRange.start} 
+              onChange={e => setDateRange({...dateRange, start: e.target.value})}
+              className="text-xs font-bold text-slate-600 outline-none bg-transparent"
+            />
+            <span className="text-slate-300">→</span>
+            <input 
+              type="date" 
+              value={dateRange.end} 
+              onChange={e => setDateRange({...dateRange, end: e.target.value})}
+              className="text-xs font-bold text-slate-600 outline-none bg-transparent"
+            />
           </div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ventas Totales</p>
-          <p className="text-3xl font-black text-slate-900">${formatPrice(stats.totalSales)}</p>
-        </div>
-
-        <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm">
-          <div className="w-12 h-12 bg-slate-100 text-slate-600 rounded-2xl flex items-center justify-center mb-4">
-            <TrendingDown size={24} />
-          </div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Gastos Totales</p>
-          <p className="text-3xl font-black text-slate-900">${formatPrice(stats.totalExpenses)}</p>
-        </div>
-
-        <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm">
-          <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mb-4">
-            <Users size={24} />
-          </div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Deuda Clientes</p>
-          <p className="text-3xl font-black text-slate-900">${formatPrice(stats.customerBalance)}</p>
-        </div>
-
-        <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm">
-          <div className="w-12 h-12 bg-green-100 text-green-600 rounded-2xl flex items-center justify-center mb-4">
-            <DollarSign size={24} />
-          </div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Balance Neto</p>
-          <p className="text-3xl font-black text-slate-900">${formatPrice(stats.totalSales - stats.totalExpenses)}</p>
+          <button 
+            onClick={exportToPDF}
+            className="px-5 py-2 bg-slate-900 text-white rounded-2xl font-bold text-xs hover:bg-pink-500 transition-all flex items-center gap-2"
+          >
+            <FileText size={14} /> PDF
+          </button>
         </div>
       </div>
 
-      {/* Charts */}
-      <AccountingCharts data={chartData} />
+      {/* Internal Navigation Tabs */}
+      <div className="flex gap-2 p-1.5 bg-slate-100 rounded-[2rem] w-fit">
+        {[
+          { id: 'resumen', label: 'Resumen', icon: LayoutDashboard },
+          { id: 'gastos', label: 'Gastos', icon: Wallet },
+          { id: 'cierres', label: 'Arqueos', icon: ClipboardList }
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`flex items-center gap-2 px-6 py-3 rounded-[1.5rem] font-black text-xs uppercase tracking-widest transition-all ${
+              activeTab === tab.id 
+                ? 'bg-white text-pink-500 shadow-sm' 
+                : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <tab.icon size={16} />
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-      <div className="grid lg:grid-cols-2 gap-8">
-        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
-          <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
-            <History size={24} className="text-pink-500" /> Movimientos Recientes
-          </h3>
-          
-          <div className="space-y-4">
-            {loading ? (
-              <div className="flex justify-center py-8">
-                <div className="animate-spin w-8 h-8 border-4 border-pink-500 border-t-transparent rounded-full" />
-              </div>
-            ) : recentMovements.length === 0 ? (
-              <p className="text-slate-400 text-center py-8 font-medium">No hay movimientos registrados</p>
-            ) : (
-              recentMovements.map(m => (
-                <div key={m.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                  <div className="flex items-center gap-4">
-                    <div className={`p-3 rounded-xl ${m.type === 'venta' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                      {m.type === 'venta' ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
+      {activeTab === 'resumen' && (
+        <div className="space-y-8 animate-in fade-in duration-500">
+          {/* Stats Grid */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm">
+              <div className="w-12 h-12 bg-pink-100 text-pink-600 rounded-2xl flex items-center justify-center mb-4"><TrendingUp size={24} /></div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ventas del Período</p>
+              <p className="text-3xl font-black text-slate-900">${formatPrice(stats.totalSales)}</p>
+            </div>
+            <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm">
+              <div className="w-12 h-12 bg-slate-100 text-slate-600 rounded-2xl flex items-center justify-center mb-4"><TrendingDown size={24} /></div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Gastos del Período</p>
+              <p className="text-3xl font-black text-slate-900">${formatPrice(stats.totalExpenses)}</p>
+            </div>
+            <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm">
+              <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mb-4"><Users size={24} /></div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Deuda en Cta Cte</p>
+              <p className="text-3xl font-black text-slate-900">${formatPrice(stats.customerBalance)}</p>
+            </div>
+            <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm">
+              <div className="w-12 h-12 bg-green-100 text-green-600 rounded-2xl flex items-center justify-center mb-4"><DollarSign size={24} /></div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Resultado Neto</p>
+              <p className="text-3xl font-black text-slate-900">${formatPrice(stats.totalSales - stats.totalExpenses)}</p>
+            </div>
+          </div>
+
+          <AccountingCharts data={chartData} />
+
+          <div className="grid lg:grid-cols-2 gap-8">
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+              <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2"><History size={24} className="text-pink-500" /> Últimos Movimientos</h3>
+              <div className="space-y-4">
+                {recentMovements.map((m, i) => (
+                  <div key={i} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <div className="flex items-center gap-4">
+                      <div className={`p-3 rounded-xl ${m.type === 'venta' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                        {m.type === 'venta' ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-800 text-sm">{m.description}</p>
+                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{new Date(m.date).toLocaleDateString('es-AR')} • {m.method}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-bold text-slate-800 text-sm">{m.description}</p>
-                      <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">
-                        {new Date(m.date).toLocaleDateString('es-AR')} • {m.method || 'N/A'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
                     <p className={`font-black text-lg ${m.type === 'venta' ? 'text-green-600' : 'text-red-600'}`}>
                       {m.type === 'venta' ? '+' : '-'}${formatPrice(m.amount)}
                     </p>
                   </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
-          <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
-            <PieChart size={24} className="text-blue-500" /> Resumen por Categoría
-          </h3>
-          <div className="h-[300px]">
-            {categoryData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <RePieChart>
-                  <Pie
-                    data={categoryData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {categoryData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    formatter={(value: number) => `$${formatPrice(value)}`}
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                  />
-                  <Legend verticalAlign="bottom" iconType="circle" />
-                </RePieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                <PieChart size={48} className="mb-2 opacity-20" />
-                <p className="text-sm font-medium">No hay datos de gastos para mostrar</p>
+                ))}
               </div>
-            )}
+            </div>
+
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+              <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2"><PieChart size={24} className="text-blue-500" /> Gastos por Categoría</h3>
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RePieChart>
+                    <Pie data={categoryData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                      {categoryData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip formatter={(v: number) => `$${formatPrice(v)}`} />
+                    <Legend verticalAlign="bottom" iconType="circle" />
+                  </RePieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {activeTab === 'gastos' && <div className="animate-in slide-in-from-bottom-4 duration-500"><ExpenseManager /></div>}
+      {activeTab === 'cierres' && <div className="animate-in slide-in-from-bottom-4 duration-500"><CashClosingHistory /></div>}
     </div>
   );
 };

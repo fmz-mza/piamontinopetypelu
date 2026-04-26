@@ -6,7 +6,7 @@ import {
   DollarSign, TrendingUp, TrendingDown, Users, Plus, X, 
   AlertCircle, CreditCard, Eye, Package, Trash2, FileText, 
   Calendar, PieChart, History, ArrowRightLeft, LayoutDashboard,
-  Receipt, Wallet, ClipboardList
+  Receipt, Wallet, ClipboardList, Truck
 } from 'lucide-react';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import toast from 'react-hot-toast';
@@ -15,6 +15,7 @@ import autoTable from 'jspdf-autotable';
 import AccountingCharts from './AccountingCharts';
 import ExpenseManager from './ExpenseManager';
 import CashClosingHistory from './CashClosingHistory';
+import SupplierManager from './SupplierManager';
 
 export const formatPrice = (price: number) => 
   price.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -38,7 +39,7 @@ interface Movement {
 const COLORS = ['#ec4899', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#64748b'];
 
 const AccountingDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'resumen' | 'gastos' | 'cierres'>('resumen');
+  const [activeTab, setActiveTab] = useState<'resumen' | 'gastos' | 'cierres' | 'proveedores'>('resumen');
   const [dateRange, setDateRange] = useState({
     start: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0],
     end: new Date().toISOString().split('T')[0]
@@ -98,7 +99,8 @@ const AccountingDashboard: React.FC = () => {
         catMap[cat] = (catMap[cat] || 0) + Number(e.amount);
       });
       
-      setCategoryData(Object.entries(catMap).map(([name, value]) => ({ name, value })));
+      const formattedCatData = Object.entries(catMap).map(([name, value]) => ({ name, value }));
+      setCategoryData(formattedCatData);
 
       const movements: Movement[] = [
         ...(allSales || []).map((s: any) => ({
@@ -211,11 +213,12 @@ const AccountingDashboard: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex gap-2 p-1.5 bg-slate-100 rounded-[2rem] w-fit">
+      <div className="flex flex-wrap gap-2 p-1.5 bg-slate-100 rounded-[2rem] w-fit">
         {[
           { id: 'resumen', label: 'Resumen', icon: LayoutDashboard },
           { id: 'gastos', label: 'Gastos', icon: Wallet },
-          { id: 'cierres', label: 'Arqueos', icon: ClipboardList }
+          { id: 'cierres', label: 'Arqueos', icon: ClipboardList },
+          { id: 'proveedores', label: 'Proveedores', icon: Truck }
         ].map(tab => (
           <button
             key={tab.id}
@@ -285,15 +288,31 @@ const AccountingDashboard: React.FC = () => {
             <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col">
               <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2"><PieChart size={24} className="text-blue-500" /> Gastos por Categoría</h3>
               <div className="flex-1 min-h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                  <RePieChart>
-                    <Pie data={categoryData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                      {categoryData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip formatter={(v: number) => `$${formatPrice(v)}`} />
-                    <Legend verticalAlign="bottom" iconType="circle" />
-                  </RePieChart>
-                </ResponsiveContainer>
+                {categoryData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                    <RePieChart>
+                      <Pie 
+                        data={categoryData} 
+                        cx="50%" 
+                        cy="50%" 
+                        innerRadius={60} 
+                        outerRadius={80} 
+                        paddingAngle={5} 
+                        dataKey="value"
+                        animationDuration={1000}
+                      >
+                        {categoryData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                      </Pie>
+                      <Tooltip formatter={(v: number) => `$${formatPrice(v)}`} />
+                      <Legend verticalAlign="bottom" iconType="circle" />
+                    </RePieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                    <PieChart size={48} className="mb-2 opacity-20" />
+                    <p className="text-sm font-medium">Sin gastos en este período</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -302,6 +321,7 @@ const AccountingDashboard: React.FC = () => {
 
       {activeTab === 'gastos' && <div className="animate-in slide-in-from-bottom-4 duration-500"><ExpenseManager /></div>}
       {activeTab === 'cierres' && <div className="animate-in slide-in-from-bottom-4 duration-500"><CashClosingHistory /></div>}
+      {activeTab === 'proveedores' && <div className="animate-in slide-in-from-bottom-4 duration-500"><SupplierManager /></div>}
     </div>
   );
 };

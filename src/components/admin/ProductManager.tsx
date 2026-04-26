@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
-import { Plus, Search, Edit2, Trash2, X, Save, AlertCircle, Package, Camera, Settings2, Filter } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, X, Save, AlertCircle, Package, Camera, Settings2, Filter, Truck } from 'lucide-react';
 import Scanner from '../shared/Scanner';
 import CategoryManager from './CategoryManager';
 import toast from 'react-hot-toast';
@@ -16,9 +16,15 @@ interface Product {
   ean: string;
   category: string;
   image_url: string;
+  supplier_id?: string;
 }
 
 interface Category {
+  id: string;
+  name: string;
+}
+
+interface Supplier {
   id: string;
   name: string;
 }
@@ -30,12 +36,14 @@ const emptyProduct: Product = {
   stock: '',
   ean: '',
   category: '',
-  image_url: ''
+  image_url: '',
+  supplier_id: ''
 };
 
 const ProductManager: React.FC = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Todas');
@@ -45,10 +53,8 @@ const ProductManager: React.FC = () => {
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
   const [formData, setFormData] = useState<Product>(emptyProduct);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
-  const [isConfigured, setIsConfigured] = useState(true);
 
   useEffect(() => {
-    setIsConfigured(isSupabaseConfigured());
     if (isSupabaseConfigured()) {
       fetchData();
     }
@@ -57,12 +63,14 @@ const ProductManager: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [prodRes, catRes] = await Promise.all([
-        supabase.from('products').select('*').order('name'),
-        supabase.from('categories').select('*').order('name')
+      const [prodRes, catRes, supRes] = await Promise.all([
+        supabase.from('products').select('*, suppliers(name)').order('name'),
+        supabase.from('categories').select('*').order('name'),
+        supabase.from('suppliers').select('id, name').order('name')
       ]);
       if (prodRes.data) setProducts(prodRes.data);
       if (catRes.data) setCategories(catRes.data);
+      if (supRes.data) setSuppliers(supRes.data);
     } catch (err: any) {
       console.error('Error fetching data:', err);
     } finally {
@@ -119,6 +127,7 @@ const ProductManager: React.FC = () => {
         ean: formData.ean,
         category: formData.category,
         image_url: formData.image_url,
+        supplier_id: formData.supplier_id || null,
         updated_at: new Date().toISOString()
       };
 
@@ -260,7 +269,11 @@ const ProductManager: React.FC = () => {
                     <p className="text-lg font-black text-pink-500">${formatPrice(product.price)}</p>
                     <p className="text-xs text-slate-400">Stock: {product.stock}</p>
                   </div>
-                  {product.ean && <span className="text-[10px] text-slate-400 font-mono">{product.ean}</span>}
+                  {product.suppliers?.name && (
+                    <div className="flex items-center gap-1 text-[9px] text-slate-400 font-bold uppercase">
+                      <Truck size={10} /> {product.suppliers.name}
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-2 pt-2">
                   <button onClick={() => handleOpenModal(product)} className="flex-1 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors flex items-center justify-center gap-1">
@@ -350,20 +363,32 @@ const ProductManager: React.FC = () => {
                   <input type="text" value={formData.ean} onChange={(e) => setFormData({ ...formData, ean: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 outline-none font-mono" placeholder="Código de barras" />
                 </div>
               </div>
-              <div>
-                <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Categoría *</label>
-                <select 
-                  value={formData.category} 
-                  onChange={(e) => {
-                    setFormData({ ...formData, category: e.target.value });
-                    if (errors.category) setErrors({ ...errors, category: false });
-                  }} 
-                  className={`w-full px-4 py-3 rounded-xl border outline-none transition-all bg-white ${errors.category ? 'border-red-500 bg-red-50' : 'border-slate-200 focus:border-pink-500'}`}
-                >
-                  <option value="">Seleccionar categoría...</option>
-                  {categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
-                </select>
-                {errors.category && <p className="text-[10px] text-red-500 font-bold mt-1 uppercase">completar</p>}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Categoría *</label>
+                  <select 
+                    value={formData.category} 
+                    onChange={(e) => {
+                      setFormData({ ...formData, category: e.target.value });
+                      if (errors.category) setErrors({ ...errors, category: false });
+                    }} 
+                    className={`w-full px-4 py-3 rounded-xl border outline-none transition-all bg-white ${errors.category ? 'border-red-500 bg-red-50' : 'border-slate-200 focus:border-pink-500'}`}
+                  >
+                    <option value="">Seleccionar...</option>
+                    {categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Proveedor</label>
+                  <select 
+                    value={formData.supplier_id} 
+                    onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })} 
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 outline-none bg-white"
+                  >
+                    <option value="">Sin proveedor</option>
+                    {suppliers.map(sup => <option key={sup.id} value={sup.id}>{sup.name}</option>)}
+                  </select>
+                </div>
               </div>
               <div>
                 <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">URL de Imagen</label>

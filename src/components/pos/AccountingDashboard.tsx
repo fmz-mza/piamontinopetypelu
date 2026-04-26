@@ -81,32 +81,59 @@ const AccountingDashboard: React.FC = () => {
     try {
       const doc = new jsPDF();
       const today = new Date().toLocaleDateString();
+      const fileNameDate = new Date().toISOString().split('T')[0];
       
-      doc.setFontSize(20);
-      doc.text('Reporte de Ventas - Piamontino', 14, 22);
-      doc.setFontSize(10);
-      doc.text(`Fecha de generación: ${today}`, 14, 30);
-
-      const tableData = sales.map(sale => [
+      let title = 'Reporte de Ventas - Piamontino';
+      let fileName = `reporte-ventas-${fileNameDate}.pdf`;
+      let head = [['Fecha', 'Método', 'Total']];
+      let body = sales.map(sale => [
         new Date(sale.created_at).toLocaleDateString(),
         sale.payment_method.toUpperCase(),
         `$${formatPrice(sale.total)}`
       ]);
+      let footerText = `Total Acumulado: $${formatPrice(sales.reduce((sum, s) => sum + s.total, 0))}`;
+
+      if (activeTab === 'gastos') {
+        title = 'Reporte de Gastos - Piamontino';
+        fileName = `reporte-gastos-${fileNameDate}.pdf`;
+        head = [['Fecha', 'Descripción', 'Tipo', 'Monto']];
+        body = expenses.map(e => [
+          new Date(e.date).toLocaleDateString(),
+          e.description,
+          e.type.toUpperCase(),
+          `$${formatPrice(e.amount)}`
+        ]);
+        footerText = `Total Gastos: $${formatPrice(expenses.reduce((sum, e) => sum + e.amount, 0))}`;
+      } else if (activeTab === 'clientes') {
+        title = 'Reporte de Cuentas Corrientes - Piamontino';
+        fileName = `reporte-clientes-${fileNameDate}.pdf`;
+        head = [['Cliente', 'Teléfono', 'Saldo']];
+        body = customers.map(c => [
+          c.name,
+          c.phone || '-',
+          `$${formatPrice(c.balance)}`
+        ]);
+        footerText = `Total Deuda Clientes: $${formatPrice(customers.reduce((sum, c) => sum + c.balance, 0))}`;
+      }
+
+      doc.setFontSize(20);
+      doc.text(title, 14, 22);
+      doc.setFontSize(10);
+      doc.text(`Fecha de generación: ${today}`, 14, 30);
 
       autoTable(doc, {
         startY: 40,
-        head: [['Fecha', 'Método', 'Total']],
-        body: tableData,
+        head: head,
+        body: body,
         theme: 'striped',
         headStyles: { fillColor: [236, 72, 153] }
       });
 
-      const total = sales.reduce((sum, s) => sum + s.total, 0);
       const finalY = (doc as any).lastAutoTable?.finalY || 40;
       doc.setFontSize(12);
-      doc.text(`Total Acumulado: $${formatPrice(total)}`, 14, finalY + 10);
+      doc.text(footerText, 14, finalY + 10);
 
-      doc.save(`reporte-ventas-${today}.pdf`);
+      doc.save(fileName);
       toast.success('PDF generado correctamente');
     } catch (err) {
       console.error('Error generating PDF:', err);

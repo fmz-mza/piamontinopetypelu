@@ -7,6 +7,7 @@ import {
   AlertCircle, CreditCard, Eye, Package, Trash2, FileText, 
   Calendar, PieChart, History, ArrowRightLeft 
 } from 'lucide-react';
+import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -31,6 +32,8 @@ interface Movement {
   method?: string;
 }
 
+const COLORS = ['#ec4899', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#64748b'];
+
 const AccountingDashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats>({
     totalSales: 0,
@@ -41,6 +44,7 @@ const AccountingDashboard: React.FC = () => {
   const [recentMovements, setRecentMovements] = useState<Movement[]>([]);
   const [loading, setLoading] = useState(true);
   const [chartData, setChartData] = useState<any[]>([]);
+  const [categoryData, setCategoryData] = useState<any[]>([]);
   const [isConfigured, setIsConfigured] = useState(true);
 
   useEffect(() => {
@@ -54,16 +58,14 @@ const AccountingDashboard: React.FC = () => {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      // Consultas para movimientos recientes
       const [salesRes, expensesRes, customersRes] = await Promise.all([
         supabase.from('sales').select('id, total, created_at, payment_method').order('created_at', { ascending: false }).limit(10),
-        supabase.from('expenses').select('id, amount, date, description, type').order('date', { ascending: false }).limit(10),
+        supabase.from('expenses').select('id, amount, date, description, type, category').order('date', { ascending: false }).limit(10),
         supabase.from('customers').select('balance')
       ]);
 
-      // Consultas para totales y gráficos (incluyendo fechas)
       const { data: allSales } = await supabase.from('sales').select('total, created_at');
-      const { data: allExpenses } = await supabase.from('expenses').select('amount, date');
+      const { data: allExpenses } = await supabase.from('expenses').select('amount, date, category');
       
       const totalSales = (allSales || []).reduce((acc, s) => acc + Number(s.total), 0);
       const totalExpenses = (allExpenses || []).reduce((acc, e) => acc + Number(e.amount), 0);
@@ -77,7 +79,16 @@ const AccountingDashboard: React.FC = () => {
         activeCustomers
       });
 
-      // Combinar movimientos recientes
+      // Procesar datos por categoría para el gráfico de torta
+      const catMap: Record<string, number> = {};
+      (allExpenses || []).forEach(e => {
+        const cat = e.category || 'Sin Categoría';
+        catMap[cat] = (catMap[cat] || 0) + Number(e.amount);
+      });
+      
+      const processedCatData = Object.entries(catMap).map(([name, value]) => ({ name, value }));
+      setCategoryData(processedCatData);
+
       const movements: Movement[] = [
         ...(salesRes.data || []).map(s => ({
           id: s.id,
@@ -99,7 +110,6 @@ const AccountingDashboard: React.FC = () => {
 
       setRecentMovements(movements);
 
-      // Procesar datos para el gráfico (últimos 7 días)
       const last7Days = Array.from({ length: 7 }, (_, i) => {
         const d = new Date();
         d.setDate(d.getDate() - i);
@@ -257,7 +267,37 @@ const AccountingDashboard: React.FC = () => {
           <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
             <PieChart size={24} className="text-blue-500" /> Resumen por Categoría
           </h3>
-          <p className="text-slate-400 text-center py-8 font-medium">Próximamente: Análisis detallado de gastos por categoría.</p>
+          <div className="h-[300px]">
+            {categoryData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <RePieChart>
+                  <Pie
+                    data={categoryData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {categoryData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(value: number) => `$${formatPrice(value)}`}
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                  />
+                  <Legend verticalAlign="bottom" iconType="circle" />
+                </RePieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                <PieChart size={48} className="mb-2 opacity-20" />
+                <p className="text-sm font-medium">No hay datos de gastos para mostrar</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

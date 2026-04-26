@@ -5,12 +5,13 @@ import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { 
   Plus, Minus, Trash2, Barcode, Search, ShoppingCart, 
   DollarSign, CreditCard, X, AlertCircle, Users, 
-  ArrowRightLeft, Eye, Power, Play 
+  ArrowRightLeft, Eye, Power, Play, UserPlus 
 } from 'lucide-react';
 import Scanner from '../shared/Scanner';
 import OpenCashModal from './OpenCashModal';
 import CashClosingModal from './CashClosingModal';
 import SaleDetailModal from './SaleDetailModal';
+import NewCustomerModal from './NewCustomerModal';
 import toast from 'react-hot-toast';
 
 interface Product {
@@ -22,6 +23,12 @@ interface Product {
   ean: string;
   category: string;
   image_url: string;
+}
+
+interface Customer {
+  id: string;
+  name: string;
+  balance: number;
 }
 
 interface Sale {
@@ -39,17 +46,20 @@ interface CartItem extends Product {
 
 const SalesTerminal: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showScanner, setShowScanner] = useState(false);
   const [showOpenCashModal, setShowOpenCashModal] = useState(false);
   const [showCloseCashModal, setShowCloseCashModal] = useState(false);
+  const [showNewCustomerModal, setShowNewCustomerModal] = useState(false);
   const [currentSession, setCurrentSession] = useState<{ id: string } | null>(null);
   const [sales, setSales] = useState<Sale[]>([]);
   const [showSaleModal, setShowSaleModal] = useState(false);
   const [viewingSale, setViewingSale] = useState<Sale | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'tarjeta' | 'transferencia' | 'cuenta_corriente'>('efectivo');
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [isCartOpen, setIsCartOpen] = useState(false);
 
   const formatPrice = (price: number) => {
@@ -66,6 +76,16 @@ const SalesTerminal: React.FC = () => {
       console.error('Error fetching products:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCustomers = async () => {
+    try {
+      const { data, error } = await supabase.from('customers').select('id, name, balance').order('name');
+      if (error) throw error;
+      setCustomers(data || []);
+    } catch (err) {
+      console.error('Error fetching customers:', err);
     }
   };
 
@@ -97,6 +117,7 @@ const SalesTerminal: React.FC = () => {
   useEffect(() => {
     if (isSupabaseConfigured()) {
       fetchProducts();
+      fetchCustomers();
       fetchSales();
       checkCashSession();
     }
@@ -159,6 +180,11 @@ const SalesTerminal: React.FC = () => {
       return;
     }
 
+    if (paymentMethod === 'cuenta_corriente' && !selectedCustomerId) {
+      toast.error('Selecciona un cliente para Cuenta Corriente');
+      return;
+    }
+
     const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const items = cart.map(item => ({
       name: item.name,
@@ -170,10 +196,21 @@ const SalesTerminal: React.FC = () => {
       const { error } = await supabase.from('sales').insert([{
         total,
         items,
-        payment_method: paymentMethod
+        payment_method: paymentMethod,
+        customer_id: paymentMethod === 'cuenta_corriente' ? selectedCustomerId : null
       }]);
 
       if (error) throw error;
+
+      // Update customer balance if Cta Cte
+      if (paymentMethod === 'cuenta_corriente') {
+        const customer = customers.find(c => c.id === selectedCustomerId);
+        if (customer) {
+          await supabase.from('customers').update({ 
+            balance: customer.balance + total 
+          }).eq('id', selectedCustomerId);
+        }
+      }
 
       // Update stock
       for (const item of cart) {
@@ -196,7 +233,9 @@ const SalesTerminal: React.FC = () => {
       toast.success('Venta realizada con éxito');
       setCart([]);
       setIsCartOpen(false);
+      setSelectedCustomerId('');
       fetchProducts();
+      fetchCustomers();
       fetchSales();
     } catch (err) {
       console.error('Error during checkout:', err);
@@ -430,6 +469,31 @@ const SalesTerminal: React.FC = () => {
                 </div>
               </div>
 
+              {paymentMethod === 'cuenta_corriente' && (
+                <div className="space-y-2">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Seleccionar Cliente</p>
+                  <div className="flex gap-2">
+                    <select
+                      value={selectedCustomerId}
+                      onChange={e => setSelectedCustomerId(e.target.value)}
+                      className="flex-1 p-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-pink-500/20 outline-none text-sm font-medium"
+                    >
+                      <option value="">Seleccionar cliente...</option>
+                      {customers.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => setShowNewCustomerModal(true)}
+                      className="p-3 bg-slate-900 text-white rounded-xl hover:bg-pink-500 transition-colors"
+                      title="Nuevo Cliente"
+                    >
+                      <UserPlus size={20} />
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="bg-slate-900 rounded-3xl p-6 text-white">
                 <div className="flex justify-between items-center mb-4">
                   <span className="text-slate-400 font-bold text-sm">Total a pagar</span>
@@ -474,6 +538,15 @@ const SalesTerminal: React.FC = () => {
           isOpen={showSaleModal} 
           onClose={() => setShowSaleModal(false)} 
           sale={viewingSale} 
+        />
+      )}
+      {showNewCustomerModal && (
+        <NewCustomerModal 
+          onClose={() => setShowNewCustomerModal(false)}
+          onSuccess={(id) => {
+            fetchCustomers();
+            setSelectedCustomerId(id);
+          }}
         />
       )}
     </div>

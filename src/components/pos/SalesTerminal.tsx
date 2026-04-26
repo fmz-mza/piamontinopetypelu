@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
-import { Plus, Minus, Trash2, Barcode, Search, ShoppingCart, DollarSign, CreditCard, X, AlertCircle, Users, Scissors, ChevronUp, Power, Play } from 'lucide-react';
+import { Plus, Minus, Trash2, Barcode, Search, ShoppingCart, DollarSign, CreditCard, X, AlertCircle, Users, Scissors, ChevronUp, Power, Play, Percent } from 'lucide-react';
 import Scanner from '../shared/Scanner';
 import OpenCashModal from './OpenCashModal';
 import CashClosingModal from './CashClosingModal';
@@ -47,8 +47,11 @@ const SalesTerminal: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'tarjeta' | 'cuenta_corriente'>('efectivo');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [showCheckout, setShowCheckout] = useState(false);
-  const [showMobileCart, setShowMobileCart] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Descuentos y Recargos
+  const [discountPercent, setDiscountPercent] = useState(0);
+  const [surchargePercent, setSurchargePercent] = useState(0);
 
   // Estado de Caja
   const [activeSession, setActiveSession] = useState<any>(null);
@@ -65,7 +68,7 @@ const SalesTerminal: React.FC = () => {
   }, []);
 
   const checkCashSession = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('cash_sessions')
       .select('*')
       .eq('status', 'open')
@@ -132,12 +135,15 @@ const SalesTerminal: React.FC = () => {
     }).filter(Boolean) as CartItem[]);
   };
 
-  const cartTotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const discountAmount = (subtotal * discountPercent) / 100;
+  const surchargeAmount = (subtotal * surchargePercent) / 100;
+  const cartTotal = subtotal - discountAmount + surchargeAmount;
 
   const handleCheckout = async () => {
     if (cart.length === 0 || isProcessing) return;
     if (!activeSession) {
-      toast.error('La caja debe estar abierta para vender');
+      toast.error('La caja debe estar abierta');
       return;
     }
     if (paymentMethod === 'cuenta_corriente' && !selectedCustomerId) {
@@ -165,12 +171,21 @@ const SalesTerminal: React.FC = () => {
 
       if (saleError) throw saleError;
 
-      // Actualizar stock
+      // Actualizar stock y registrar movimientos
       for (const item of cart) {
         if (!item.product.isService) {
           const prod = products.find(p => p.id === item.product.id);
           if (prod) {
-            await supabase.from('products').update({ stock: prod.stock - item.quantity }).eq('id', prod.id);
+            const newStock = prod.stock - item.quantity;
+            await supabase.from('products').update({ stock: newStock }).eq('id', prod.id);
+            
+            // Registrar movimiento
+            await supabase.from('stock_movements').insert([{
+              product_id: prod.id,
+              quantity: -item.quantity,
+              type: 'sale',
+              reason: `Venta POS #${paymentMethod}`
+            }]);
           }
         }
       }
@@ -185,8 +200,9 @@ const SalesTerminal: React.FC = () => {
 
       toast.success('Venta realizada con éxito');
       setCart([]);
+      setDiscountPercent(0);
+      setSurchargePercent(0);
       setShowCheckout(false);
-      setShowMobileCart(false);
       await fetchData();
     } catch (err: any) {
       toast.error(`Error: ${err.message}`);
@@ -198,8 +214,6 @@ const SalesTerminal: React.FC = () => {
   const formatPrice = (price: number) => {
     return price.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   };
-
-  const expectedCashToday = activeSession ? (activeSession.opening_balance + products.length) : 0; // Simplificado para el ejemplo
 
   return (
     <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-10rem)] lg:h-[calc(100vh-8rem)] relative">
@@ -229,7 +243,7 @@ const SalesTerminal: React.FC = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text" 
-              placeholder="Buscar..." 
+              placeholder="Buscar producto o servicio..." 
               value={searchTerm} 
               onChange={(e) => setSearchTerm(e.target.value)} 
               className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 outline-none focus:border-pink-500 text-base" 
@@ -265,7 +279,7 @@ const SalesTerminal: React.FC = () => {
                 <p className="font-bold text-slate-800 text-xs line-clamp-2 h-8 leading-tight mb-1">{product.name}</p>
                 <div className="flex justify-between items-end">
                   <p className="text-pink-500 font-black text-sm">${formatPrice(product.price)}</p>
-                  <p className="text-[9px] font-black text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded-md">STK: {product.stock}</p>
+                  <p className={`text-[9px] font-black px-1.5 py-0.5 rounded-md ${product.stock <= 5 ? 'bg-red-50 text-red-500' : 'bg-slate-50 text-slate-400'}`}>STK: {product.stock}</p>
                 </div>
               </button>
             ))}
@@ -279,6 +293,7 @@ const SalesTerminal: React.FC = () => {
           <h2 className="font-black text-slate-800 flex items-center gap-2 uppercase tracking-widest text-sm">
             <ShoppingCart size={18} className="text-pink-500" /> Carrito ({cart.length})
           </h2>
+          <button onClick={() => setCart([])} className="text-[10px] font-black text-slate-400 hover:text-red-500 uppercase tracking-widest">Vaciar</button>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {cart.length === 0 ? (
@@ -303,9 +318,27 @@ const SalesTerminal: React.FC = () => {
           )}
         </div>
         <div className="p-6 border-t space-y-4 bg-white">
-          <div className="flex justify-between items-center">
-            <span className="text-slate-400 font-black uppercase tracking-widest text-[10px]">Total</span>
-            <span className="text-3xl font-black text-slate-900">${formatPrice(cartTotal)}</span>
+          <div className="space-y-2">
+            <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-widest">
+              <span>Subtotal</span>
+              <span>${formatPrice(subtotal)}</span>
+            </div>
+            {discountPercent > 0 && (
+              <div className="flex justify-between text-xs font-bold text-red-500 uppercase tracking-widest">
+                <span>Descuento ({discountPercent}%)</span>
+                <span>-${formatPrice(discountAmount)}</span>
+              </div>
+            )}
+            {surchargePercent > 0 && (
+              <div className="flex justify-between text-xs font-bold text-blue-500 uppercase tracking-widest">
+                <span>Recargo ({surchargePercent}%)</span>
+                <span>+${formatPrice(surchargeAmount)}</span>
+              </div>
+            )}
+            <div className="flex justify-between items-center pt-2 border-t border-slate-50">
+              <span className="text-slate-900 font-black uppercase tracking-widest text-xs">Total</span>
+              <span className="text-3xl font-black text-slate-900">${formatPrice(cartTotal)}</span>
+            </div>
           </div>
           <button onClick={() => setShowCheckout(true)} disabled={cart.length === 0 || isProcessing} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:bg-pink-500 transition-all disabled:opacity-50 active:scale-95">
             Cobrar Ahora
@@ -315,7 +348,7 @@ const SalesTerminal: React.FC = () => {
 
       {/* Modales de Caja */}
       {showOpenModal && <OpenCashModal onClose={() => setShowOpenModal(false)} onSuccess={checkCashSession} />}
-      {showCloseModal && <CashClosingModal expectedCash={expectedCashToday} sessionId={activeSession?.id} onClose={() => setShowCloseModal(false)} onSuccess={checkCashSession} />}
+      {showCloseModal && <CashClosingModal expectedCash={activeSession?.opening_balance || 0} sessionId={activeSession?.id} onClose={() => setShowCloseModal(false)} onSuccess={checkCashSession} />}
       
       {/* Modal Caja Cerrada Warning */}
       {showClosedWarning && (
@@ -351,11 +384,29 @@ const SalesTerminal: React.FC = () => {
               <h3 className="font-black text-slate-800 uppercase tracking-widest text-sm">Finalizar Venta</h3>
               <button onClick={() => setShowCheckout(false)} className="p-2 hover:bg-slate-100 rounded-full"><X size={20} /></button>
             </div>
-            <div className="p-8 space-y-8">
+            <div className="p-8 space-y-6">
               <div className="text-center">
                 <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-2">Total a cobrar</p>
                 <p className="text-5xl font-black text-slate-900 tracking-tighter">${formatPrice(cartTotal)}</p>
               </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Descuento %</label>
+                  <div className="relative">
+                    <Percent className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                    <input type="number" value={discountPercent} onChange={e => setDiscountPercent(Number(e.target.value))} className="w-full pl-9 pr-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-red-500/20 outline-none font-bold text-sm" placeholder="0" />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Recargo %</label>
+                  <div className="relative">
+                    <Percent className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                    <input type="number" value={surchargePercent} onChange={e => setSurchargePercent(Number(e.target.value))} className="w-full pl-9 pr-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500/20 outline-none font-bold text-sm" placeholder="0" />
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-3 gap-3">
                 {['efectivo', 'tarjeta', 'cuenta_corriente'].map(m => (
                   <button key={m} onClick={() => setPaymentMethod(m as any)} className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all active:scale-95 ${paymentMethod === m ? 'border-pink-500 bg-pink-50 text-pink-600' : 'border-slate-100 text-slate-400 hover:border-slate-200'}`}>

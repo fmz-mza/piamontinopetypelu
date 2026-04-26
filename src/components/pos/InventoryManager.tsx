@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
-import { Package, Search, Barcode, Plus, Minus, AlertCircle, X } from 'lucide-react';
+import { Package, Search, Barcode, Plus, Minus, AlertCircle, X, History, TrendingUp, TrendingDown } from 'lucide-react';
 import Scanner from '../shared/Scanner';
+import StockHistoryModal from './StockHistoryModal';
 import toast from 'react-hot-toast';
 
 interface Product {
@@ -25,6 +26,7 @@ const InventoryManager: React.FC = () => {
   const [isConfigured, setIsConfigured] = useState(true);
   const [editingStock, setEditingStock] = useState<{ id: string; name: string; stock: number } | null>(null);
   const [stockValue, setStockValue] = useState('');
+  const [selectedProductHistory, setSelectedProductHistory] = useState<Product | null>(null);
 
   useEffect(() => {
     setIsConfigured(isSupabaseConfigured());
@@ -55,7 +57,7 @@ const InventoryManager: React.FC = () => {
     setSearchTerm(code);
   };
 
-  const updateStock = async (productId: string, delta: number) => {
+  const updateStock = async (productId: string, delta: number, reason = 'Ajuste manual') => {
     const product = products.find(p => p.id === productId);
     if (!product) return;
 
@@ -66,12 +68,22 @@ const InventoryManager: React.FC = () => {
     }
 
     try {
-      const { error } = await supabase
+      // 1. Actualizar stock
+      const { error: updateError } = await supabase
         .from('products')
         .update({ stock: newStock, updated_at: new Date().toISOString() })
         .eq('id', productId);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
+
+      // 2. Registrar movimiento
+      await supabase.from('stock_movements').insert([{
+        product_id: productId,
+        quantity: delta,
+        type: delta > 0 ? 'purchase' : 'adjustment',
+        reason: reason
+      }]);
+
       fetchProducts();
       toast.success('Stock actualizado');
     } catch (err) {
@@ -89,6 +101,12 @@ const InventoryManager: React.FC = () => {
       return;
     }
 
+    const delta = newStock - editingStock.stock;
+    if (delta === 0) {
+      setEditingStock(null);
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('products')
@@ -96,6 +114,14 @@ const InventoryManager: React.FC = () => {
         .eq('id', editingStock.id);
 
       if (error) throw error;
+
+      await supabase.from('stock_movements').insert([{
+        product_id: editingStock.id,
+        quantity: delta,
+        type: 'adjustment',
+        reason: 'Ajuste de inventario manual'
+      }]);
+
       toast.success('Stock actualizado');
       setEditingStock(null);
       setStockValue('');
@@ -112,43 +138,29 @@ const InventoryManager: React.FC = () => {
     p.ean?.includes(searchTerm)
   );
 
-  const lowStockProducts = products.filter(p => p.stock <= 5);
+  const lowStockProducts = products.filter(p => p.stock > 0 && p.stock <= 5);
   const outOfStockProducts = products.filter(p => p.stock === 0);
 
-  if (!isConfigured) {
-    return (
-      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6">
-        <div className="flex items-start gap-4">
-          <AlertCircle className="text-amber-500 shrink-0 mt-0.5" size={24} />
-          <div>
-            <h3 className="font-bold text-amber-800 mb-2">Supabase no configurado</h3>
-            <p className="text-amber-700 text-sm">
-              Configurá las variables de entorno para gestionar el inventario.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (!isConfigured) return <div className="p-6 bg-amber-50 rounded-2xl">Configurá Supabase</div>;
 
   return (
     <div className="space-y-6">
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-2xl border border-slate-200">
-          <p className="text-slate-500 text-sm">Total Productos</p>
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Productos</p>
           <p className="text-2xl font-black text-slate-800">{products.length}</p>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-200">
-          <p className="text-slate-500 text-sm">En Stock</p>
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">En Stock</p>
           <p className="text-2xl font-black text-green-500">{products.filter(p => p.stock > 5).length}</p>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-200">
-          <p className="text-slate-500 text-sm">Stock Bajo</p>
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Stock Bajo</p>
           <p className="text-2xl font-black text-amber-500">{lowStockProducts.length}</p>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-200">
-          <p className="text-slate-500 text-sm">Sin Stock</p>
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Sin Stock</p>
           <p className="text-2xl font-black text-red-500">{outOfStockProducts.length}</p>
         </div>
       </div>
@@ -156,26 +168,25 @@ const InventoryManager: React.FC = () => {
       {/* Search */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input
             type="text"
             placeholder="Buscar por nombre, categoría o EAN..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-100 outline-none transition-all"
+            className="w-full pl-12 pr-4 py-3.5 rounded-2xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-100 outline-none transition-all font-medium"
           />
         </div>
         <button
           onClick={() => setShowScanner(true)}
-          className="px-4 py-3 bg-pink-500 text-white rounded-xl font-medium hover:bg-pink-600 transition-colors flex items-center gap-2"
+          className="p-3.5 bg-pink-500 text-white rounded-2xl font-medium hover:bg-pink-600 transition-all shadow-lg active:scale-95"
         >
-          <Barcode size={18} />
-          <span className="hidden sm:inline">Escanear</span>
+          <Barcode size={24} />
         </button>
       </div>
 
       {/* Products Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin w-8 h-8 border-4 border-pink-500 border-t-transparent rounded-full" />
@@ -188,22 +199,20 @@ const InventoryManager: React.FC = () => {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-slate-50 border-b border-slate-200">
+              <thead className="bg-slate-50/50 border-b border-slate-100">
                 <tr>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Producto</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Categoría</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">EAN</th>
-                  <th className="text-right px-4 py-3 text-sm font-medium text-slate-600">Precio</th>
-                  <th className="text-center px-4 py-3 text-sm font-medium text-slate-600">Stock</th>
-                  <th className="text-center px-4 py-3 text-sm font-medium text-slate-600">Acciones</th>
+                  <th className="text-left px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Producto</th>
+                  <th className="text-left px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Categoría</th>
+                  <th className="text-center px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Stock</th>
+                  <th className="text-center px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Acciones</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-50">
                 {filteredProducts.map(product => (
-                  <tr key={product.id} className="border-b border-slate-100 hover:bg-slate-50">
-                    <td className="px-4 py-3">
+                  <tr key={product.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 shrink-0">
+                        <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-100 shrink-0">
                           {product.image_url ? (
                             <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
                           ) : (
@@ -212,14 +221,17 @@ const InventoryManager: React.FC = () => {
                             </div>
                           )}
                         </div>
-                        <span className="font-medium text-slate-800">{product.name}</span>
+                        <div>
+                          <p className="font-bold text-slate-800 text-sm">{product.name}</p>
+                          <p className="text-[10px] font-mono text-slate-400">{product.ean || 'Sin EAN'}</p>
+                        </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{product.category || '-'}</td>
-                    <td className="px-4 py-3 font-mono text-sm text-slate-500">{product.ean || '-'}</td>
-                    <td className="px-4 py-3 text-right font-medium text-slate-800">${product.price.toFixed(2)}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-bold ${
+                    <td className="px-6 py-4">
+                      <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">{product.category || '-'}</span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-black ${
                         product.stock === 0
                           ? 'bg-red-100 text-red-600'
                           : product.stock <= 5
@@ -229,11 +241,11 @@ const InventoryManager: React.FC = () => {
                         {product.stock}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-center gap-1">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-center gap-2">
                         <button
                           onClick={() => updateStock(product.id, -1)}
-                          className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200"
+                          className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
                           disabled={product.stock === 0}
                         >
                           <Minus size={14} />
@@ -243,15 +255,22 @@ const InventoryManager: React.FC = () => {
                             setEditingStock({ id: product.id, name: product.name, stock: product.stock });
                             setStockValue(product.stock.toString());
                           }}
-                          className="px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                          className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-pink-500 transition-colors"
                         >
                           Editar
                         </button>
                         <button
                           onClick={() => updateStock(product.id, 1)}
-                          className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200"
+                          className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 hover:bg-green-50 hover:text-green-500 transition-colors"
                         >
                           <Plus size={14} />
+                        </button>
+                        <button
+                          onClick={() => setSelectedProductHistory(product)}
+                          className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 hover:bg-blue-50 hover:text-blue-500 transition-colors"
+                          title="Ver Historial"
+                        >
+                          <History size={14} />
                         </button>
                       </div>
                     </td>
@@ -263,49 +282,36 @@ const InventoryManager: React.FC = () => {
         )}
       </div>
 
-      {/* Scanner Modal */}
-      {showScanner && (
-        <Scanner
-          onScan={handleScan}
-          onClose={() => setShowScanner(false)}
-        />
-      )}
+      {showScanner && <Scanner onScan={handleScan} onClose={() => setShowScanner(false)} />}
+      {selectedProductHistory && <StockHistoryModal product={selectedProductHistory} onClose={() => setSelectedProductHistory(null)} />}
 
       {/* Edit Stock Modal */}
       {editingStock && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="font-bold text-slate-800">Editar Stock</h3>
-              <button
-                onClick={() => {
-                  setEditingStock(null);
-                  setStockValue('');
-                }}
-                className="p-2 hover:bg-slate-100 rounded-lg"
-              >
-                <X size={20} className="text-slate-600" />
-              </button>
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden shadow-2xl">
+            <div className="p-6 border-b flex justify-between items-center bg-slate-50/50">
+              <h3 className="font-black text-slate-900 tracking-tight">Ajuste de Stock</h3>
+              <button onClick={() => setEditingStock(null)} className="p-2 text-slate-400"><X size={20} /></button>
             </div>
-
-            <div className="p-4">
-              <p className="text-slate-600 mb-4">{editingStock.name}</p>
+            <div className="p-8 space-y-6">
+              <div className="text-center">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{editingStock.name}</p>
+                <p className="text-xs text-slate-500 font-medium">Stock actual: {editingStock.stock}</p>
+              </div>
               <input
                 type="number"
                 min="0"
                 value={stockValue}
                 onChange={(e) => setStockValue(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-100 outline-none transition-all text-center text-2xl font-bold"
+                className="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-pink-500/20 outline-none text-3xl font-black text-center"
                 placeholder="0"
+                autoFocus
               />
-            </div>
-
-            <div className="p-4 border-t">
               <button
                 onClick={handleSetStock}
-                className="w-full py-3 bg-pink-500 text-white rounded-xl font-bold hover:bg-pink-600 transition-colors"
+                className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black uppercase tracking-widest text-sm shadow-xl hover:bg-pink-500 transition-all active:scale-95"
               >
-                Guardar
+                Guardar Cambios
               </button>
             </div>
           </div>

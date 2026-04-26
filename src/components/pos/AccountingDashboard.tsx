@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
-import { DollarSign, TrendingUp, TrendingDown, Users, Plus, X, AlertCircle, CreditCard, Eye, Package, Trash2, FileText, Calendar, PieChart, History } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, Users, Plus, X, AlertCircle, CreditCard, Eye, Package, Trash2, FileText, Calendar, PieChart, History, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -55,6 +55,10 @@ const AccountingDashboard: React.FC = () => {
   const [isConfigured, setIsConfigured] = useState(true);
   const [activeTab, setActiveTab] = useState<'resumen' | 'gastos' | 'clientes' | 'arqueo'>('resumen');
   const [dateRange, setDateRange] = useState<DateRange>('mes');
+  const [customDates, setCustomDates] = useState({ 
+    start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0], 
+    end: new Date().toISOString().split('T')[0] 
+  });
   
   // Modales
   const [showExpenseModal, setShowExpenseModal] = useState(false);
@@ -110,6 +114,11 @@ const AccountingDashboard: React.FC = () => {
       if (dateRange === 'ayer') return d >= yesterday && d < today;
       if (dateRange === '7dias') return d >= sevenDaysAgo;
       if (dateRange === 'mes') return d >= firstOfMonth;
+      if (dateRange === 'personalizado') {
+        const start = new Date(customDates.start).getTime();
+        const end = new Date(customDates.end).getTime() + 86400000; // Incluir el día final completo
+        return d >= start && d < end;
+      }
       return true;
     };
 
@@ -117,7 +126,7 @@ const AccountingDashboard: React.FC = () => {
       sales: sales.filter(s => filterByRange(s.created_at)),
       expenses: expenses.filter(e => filterByRange(e.date))
     };
-  }, [sales, expenses, dateRange]);
+  }, [sales, expenses, dateRange, customDates]);
 
   const stats = useMemo(() => {
     const totalSales = filteredData.sales.reduce((sum, s) => sum + s.total, 0);
@@ -293,7 +302,25 @@ const AccountingDashboard: React.FC = () => {
           ))}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {dateRange === 'personalizado' && (
+            <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl animate-in fade-in slide-in-from-right-2">
+              <input 
+                type="date" 
+                value={customDates.start} 
+                onChange={e => setCustomDates({...customDates, start: e.target.value})}
+                className="bg-transparent border-none text-[10px] font-black text-slate-600 outline-none px-2 py-1"
+              />
+              <ArrowRight size={12} className="text-slate-300" />
+              <input 
+                type="date" 
+                value={customDates.end} 
+                onChange={e => setCustomDates({...customDates, end: e.target.value})}
+                className="bg-transparent border-none text-[10px] font-black text-slate-600 outline-none px-2 py-1"
+              />
+            </div>
+          )}
+          
           <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl">
             <Calendar size={14} className="ml-2 text-slate-400" />
             <select 
@@ -305,6 +332,7 @@ const AccountingDashboard: React.FC = () => {
               <option value="ayer">Ayer</option>
               <option value="7dias">Últimos 7 días</option>
               <option value="mes">Este Mes</option>
+              <option value="personalizado">Personalizado</option>
             </select>
           </div>
           <button onClick={generatePDF} className="p-2.5 bg-slate-900 text-white rounded-xl hover:bg-pink-500 transition-all shadow-lg active:scale-95">

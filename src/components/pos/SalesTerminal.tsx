@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
-import { Plus, Minus, Trash2, Barcode, Search, ShoppingCart, DollarSign, CreditCard, X, AlertCircle, Users, Scissors, ChevronUp, Power, Play, Percent } from 'lucide-react';
+import { Plus, Minus, Trash2, Barcode, Search, ShoppingCart, DollarSign, CreditCard, X, AlertCircle, Users, Scissors, ChevronUp, Power, Play, Percent, ChevronDown } from 'lucide-react';
 import Scanner from '../shared/Scanner';
 import OpenCashModal from './OpenCashModal';
 import CashClosingModal from './CashClosingModal';
@@ -48,6 +48,7 @@ const SalesTerminal: React.FC = () => {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [showCheckout, setShowCheckout] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showMobileCart, setShowMobileCart] = useState(false);
   
   // Descuentos y Recargos
   const [discountPercent, setDiscountPercent] = useState(0);
@@ -70,7 +71,6 @@ const SalesTerminal: React.FC = () => {
         .maybeSingle();
       
       setActiveSession(data || null);
-      // Solo mostramos el warning si no hay sesión activa
       if (!data) {
         setShowClosedWarning(true);
       } else {
@@ -180,15 +180,12 @@ const SalesTerminal: React.FC = () => {
 
       if (saleError) throw saleError;
 
-      // Actualizar stock y registrar movimientos
       for (const item of cart) {
         if (!item.product.isService) {
           const prod = products.find(p => p.id === item.product.id);
           if (prod) {
             const newStock = prod.stock - item.quantity;
             await supabase.from('products').update({ stock: newStock }).eq('id', prod.id);
-            
-            // Registrar movimiento
             await supabase.from('stock_movements').insert([{
               product_id: prod.id,
               quantity: -item.quantity,
@@ -199,7 +196,6 @@ const SalesTerminal: React.FC = () => {
         }
       }
 
-      // Actualizar saldo cliente
       if (paymentMethod === 'cuenta_corriente') {
         const customer = customers.find(c => c.id === selectedCustomerId);
         if (customer) {
@@ -212,6 +208,7 @@ const SalesTerminal: React.FC = () => {
       setDiscountPercent(0);
       setSurchargePercent(0);
       setShowCheckout(false);
+      setShowMobileCart(false);
       await fetchData();
     } catch (err: any) {
       toast.error(`Error: ${err.message}`);
@@ -223,6 +220,66 @@ const SalesTerminal: React.FC = () => {
   const formatPrice = (price: number) => {
     return price.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   };
+
+  const CartContent = () => (
+    <div className="flex flex-col h-full">
+      <div className="p-5 border-b flex justify-between items-center bg-slate-50/50">
+        <h2 className="font-black text-slate-800 flex items-center gap-2 uppercase tracking-widest text-sm">
+          <ShoppingCart size={18} className="text-pink-500" /> Carrito ({cart.length})
+        </h2>
+        <button onClick={() => setCart([])} className="text-[10px] font-black text-slate-400 hover:text-red-500 uppercase tracking-widest">Vaciar</button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {cart.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-2 opacity-30">
+            <ShoppingCart size={48} />
+            <p className="text-xs font-bold uppercase tracking-widest">Vacío</p>
+          </div>
+        ) : (
+          cart.map(item => (
+            <div key={item.product.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-slate-800 text-xs truncate">{item.product.name}</p>
+                <p className="text-pink-500 font-black text-sm">${formatPrice(item.product.price)}</p>
+              </div>
+              <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-100">
+                <button onClick={() => updateQuantity(item.product.id, -1)} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-slate-50 text-slate-400"><Minus size={14} /></button>
+                <span className="w-6 text-center font-black text-xs">{item.quantity}</span>
+                <button onClick={() => updateQuantity(item.product.id, 1)} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-slate-50 text-slate-400"><Plus size={14} /></button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+      <div className="p-6 border-t space-y-4 bg-white">
+        <div className="space-y-2">
+          <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-widest">
+            <span>Subtotal</span>
+            <span>${formatPrice(subtotal)}</span>
+          </div>
+          {discountPercent > 0 && (
+            <div className="flex justify-between text-xs font-bold text-red-500 uppercase tracking-widest">
+              <span>Descuento ({discountPercent}%)</span>
+              <span>-${formatPrice(discountAmount)}</span>
+            </div>
+          )}
+          {surchargePercent > 0 && (
+            <div className="flex justify-between text-xs font-bold text-blue-500 uppercase tracking-widest">
+              <span>Recargo ({surchargePercent}%)</span>
+              <span>+${formatPrice(surchargeAmount)}</span>
+            </div>
+          )}
+          <div className="flex justify-between items-center pt-2 border-t border-slate-50">
+            <span className="text-slate-900 font-black uppercase tracking-widest text-xs">Total</span>
+            <span className="text-3xl font-black text-slate-900">${formatPrice(cartTotal)}</span>
+          </div>
+        </div>
+        <button onClick={() => setShowCheckout(true)} disabled={cart.length === 0 || isProcessing} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:bg-pink-500 transition-all disabled:opacity-50 active:scale-95">
+          Cobrar Ahora
+        </button>
+      </div>
+    </div>
+  );
 
   if (!isConfigured) return <div className="p-6 bg-amber-50 rounded-2xl">Configurá Supabase</div>;
 
@@ -250,7 +307,7 @@ const SalesTerminal: React.FC = () => {
       </div>
 
       {/* Main Area */}
-      <div className="flex-1 flex flex-col min-h-0 pb-20 lg:pb-0">
+      <div className="flex-1 flex flex-col min-h-0">
         <div className="flex items-center gap-2 mb-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -281,7 +338,7 @@ const SalesTerminal: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto pr-1">
+        <div className="flex-1 overflow-y-auto pr-1 pb-24 lg:pb-0">
           <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Productos</h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
             {products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase())).map(product => (
@@ -300,64 +357,54 @@ const SalesTerminal: React.FC = () => {
         </div>
       </div>
 
-      {/* Cart Sidebar */}
+      {/* Desktop Cart Sidebar */}
       <div className="hidden lg:flex w-96 bg-white rounded-3xl border border-slate-200 flex-col shadow-sm overflow-hidden">
-        <div className="p-5 border-b flex justify-between items-center bg-slate-50/50">
-          <h2 className="font-black text-slate-800 flex items-center gap-2 uppercase tracking-widest text-sm">
-            <ShoppingCart size={18} className="text-pink-500" /> Carrito ({cart.length})
-          </h2>
-          <button onClick={() => setCart([])} className="text-[10px] font-black text-slate-400 hover:text-red-500 uppercase tracking-widest">Vaciar</button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {cart.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-2 opacity-30">
-              <ShoppingCart size={48} />
-              <p className="text-xs font-bold uppercase tracking-widest">Vacío</p>
-            </div>
-          ) : (
-            cart.map(item => (
-              <div key={item.product.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-slate-800 text-xs truncate">{item.product.name}</p>
-                  <p className="text-pink-500 font-black text-sm">${formatPrice(item.product.price)}</p>
-                </div>
-                <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-100">
-                  <button onClick={() => updateQuantity(item.product.id, -1)} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-slate-50 text-slate-400"><Minus size={14} /></button>
-                  <span className="w-6 text-center font-black text-xs">{item.quantity}</span>
-                  <button onClick={() => updateQuantity(item.product.id, 1)} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-slate-50 text-slate-400"><Plus size={14} /></button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-        <div className="p-6 border-t space-y-4 bg-white">
-          <div className="space-y-2">
-            <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-widest">
-              <span>Subtotal</span>
-              <span>${formatPrice(subtotal)}</span>
-            </div>
-            {discountPercent > 0 && (
-              <div className="flex justify-between text-xs font-bold text-red-500 uppercase tracking-widest">
-                <span>Descuento ({discountPercent}%)</span>
-                <span>-${formatPrice(discountAmount)}</span>
-              </div>
-            )}
-            {surchargePercent > 0 && (
-              <div className="flex justify-between text-xs font-bold text-blue-500 uppercase tracking-widest">
-                <span>Recargo ({surchargePercent}%)</span>
-                <span>+${formatPrice(surchargeAmount)}</span>
-              </div>
-            )}
-            <div className="flex justify-between items-center pt-2 border-t border-slate-50">
-              <span className="text-slate-900 font-black uppercase tracking-widest text-xs">Total</span>
-              <span className="text-3xl font-black text-slate-900">${formatPrice(cartTotal)}</span>
-            </div>
-          </div>
-          <button onClick={() => setShowCheckout(true)} disabled={cart.length === 0 || isProcessing} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:bg-pink-500 transition-all disabled:opacity-50 active:scale-95">
-            Cobrar Ahora
-          </button>
-        </div>
+        <CartContent />
       </div>
+
+      {/* Mobile Cart Summary Bar */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 flex items-center justify-between z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+        <div onClick={() => setShowMobileCart(true)} className="flex items-center gap-3 cursor-pointer">
+          <div className="relative bg-pink-500 text-white p-3 rounded-2xl">
+            <ShoppingCart size={20} />
+            {cart.length > 0 && (
+              <span className="absolute -top-1 -right-1 bg-slate-900 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white">
+                {cart.length}
+              </span>
+            )}
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Carrito</p>
+            <p className="text-xl font-black text-slate-900">${formatPrice(cartTotal)}</p>
+          </div>
+        </div>
+        <button 
+          onClick={() => setShowMobileCart(true)}
+          className="bg-slate-900 text-white px-6 py-3.5 rounded-2xl font-black uppercase tracking-widest text-xs active:scale-95 transition-all"
+        >
+          Ver Carrito
+        </button>
+      </div>
+
+      {/* Mobile Cart Modal */}
+      {showMobileCart && (
+        <div className="lg:hidden fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-end">
+          <div className="bg-white w-full rounded-t-[2.5rem] h-[85vh] overflow-hidden animate-in slide-in-from-bottom duration-300 flex flex-col">
+            <div className="flex justify-center p-2">
+              <div className="w-12 h-1.5 bg-slate-200 rounded-full" onClick={() => setShowMobileCart(false)} />
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <CartContent />
+            </div>
+            <button 
+              onClick={() => setShowMobileCart(false)}
+              className="absolute top-4 right-4 p-2 text-slate-400"
+            >
+              <ChevronDown size={24} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Modales de Caja */}
       {showOpenModal && <OpenCashModal onClose={() => setShowOpenModal(false)} onSuccess={checkCashSession} />}
@@ -391,7 +438,7 @@ const SalesTerminal: React.FC = () => {
       {showScanner && <Scanner onScan={(code) => { setShowScanner(false); const p = products.find(x => x.ean === code); if(p) addToCart(p); else toast.error('No encontrado'); }} onClose={() => setShowScanner(false)} />}
       
       {showCheckout && (
-        <div className="fixed inset-0 z-[60] bg-black/80 flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-md">
+        <div className="fixed inset-0 z-[120] bg-black/80 flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-md">
           <div className="bg-white rounded-t-[2.5rem] sm:rounded-[2.5rem] w-full max-w-md shadow-2xl overflow-hidden animate-in slide-in-from-bottom sm:zoom-in duration-300">
             <div className="flex items-center justify-between p-6 border-b">
               <h3 className="font-black text-slate-800 uppercase tracking-widest text-sm">Finalizar Venta</h3>

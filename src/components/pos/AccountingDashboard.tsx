@@ -7,10 +7,10 @@ import {
   AlertCircle, CreditCard, Eye, Package, Trash2, FileText, 
   Calendar, PieChart, History, ArrowRightLeft, LayoutDashboard,
   Receipt, Wallet, ClipboardList, Truck
-} from 'lucide-center';
+} from 'lucide-react';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import toast from 'react-hot-toast';
-import jsPDF from 'jspdf';
+import jsPDF from 'jsPDF';
 import autoTable from 'jspdf-autotable';
 import AccountingCharts from './AccountingCharts';
 import ExpenseManager from './ExpenseManager';
@@ -170,7 +170,7 @@ const AccountingDashboard: React.FC = () => {
         ['Resultado Neto', `$${formatPrice(stats.totalSales - stats.totalExpenses)}`]
       ],
       theme: 'striped',
-      headStyles: { fillStyle: 'pink' }
+      headStyles: { fillColor: [236, 72, 153] }
     });
 
     doc.save(`reporte-piamontino-${dateRange.end}.pdf`);

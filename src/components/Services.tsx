@@ -83,33 +83,33 @@ const Services = () => {
   ];
 
   return (
-    <section id="servicios" className="py-32 bg-white">
+    <section id="servicios" className="py-16 sm:py-20 bg-white">
       <div className="container mx-auto px-6">
-        <div className="flex flex-col md:flex-row justify-between items-end mb-20 gap-8">
+        <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
           <div className="max-w-xl">
-            <h2 className="text-5xl font-black text-slate-900 mb-6 tracking-tighter">
+            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 mb-4 tracking-tighter">
               {content.title.split(' ').map((word, i) => (
                 <span key={i} className={content.title.toLowerCase().includes('estilo de vida') && i >= content.title.split(' ').length - 3 ? 'text-pink-500' : ''}>
                   {word}{' '}
                 </span>
               ))}
             </h2>
-            <p className="text-lg text-slate-500 font-medium">{content.subtitle}</p>
+            <p className="text-base text-slate-500 font-medium">{content.subtitle}</p>
           </div>
-          <div className="bg-slate-50 p-2 rounded-2xl flex space-x-2">
-            <button className="px-6 py-3 bg-white shadow-sm rounded-xl font-bold text-sm">Nuestros Servicios</button>
-            <button className="px-6 py-3 text-slate-400 font-bold text-sm hover:text-slate-600">Ver Galería</button>
+          <div className="bg-slate-50 p-1.5 rounded-2xl flex space-x-1">
+            <button className="px-5 py-2.5 bg-white shadow-sm rounded-xl font-bold text-xs">Nuestros Servicios</button>
+            <button className="px-5 py-2.5 text-slate-400 font-bold text-xs hover:text-slate-600">Ver Galería</button>
           </div>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-3 gap-5">
           {services.map((s, i) => (
-            <div key={i} className={`${s.className} p-10 rounded-[3rem] shadow-sm hover:shadow-2xl transition-all duration-500 group cursor-pointer border border-slate-100/50`}>
-              <div className={`${s.iconBg} w-16 h-16 rounded-2xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform duration-500 shadow-lg`}>
+            <div key={i} className={`${s.className} p-8 rounded-[2.5rem] shadow-sm hover:shadow-xl transition-all duration-500 group cursor-pointer border border-slate-100/50`}>
+              <div className={`${s.iconBg} w-14 h-14 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500 shadow-lg`}>
                 <div className="text-white">{s.icon}</div>
               </div>
-              <h3 className="text-2xl font-black mb-4 tracking-tight">{s.title}</h3>
-              <p className={`${s.className.includes('text-white') ? 'text-white/70' : 'text-slate-500'} text-lg leading-relaxed`}>
+              <h3 className="text-xl font-black mb-3 tracking-tight">{s.title}</h3>
+              <p className={`${s.className.includes('text-white') ? 'text-white/70' : 'text-slate-500'} text-base leading-relaxed`}>
                 {s.desc}
               </p>
             </div>
@@ -118,6 +118,3 @@ const Services = () => {
       </div>
     </section>
   );
-};
-
-export default Services;

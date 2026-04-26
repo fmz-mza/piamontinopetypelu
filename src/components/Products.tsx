@@ -72,29 +72,29 @@ const Products = () => {
   };
 
   return (
-    <section id="productos" className="py-24">
+    <section id="productos" className="py-16 sm:py-20">
       <div className="container mx-auto px-6">
-        <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
+        <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-4">
           <div>
-            <h2 className="text-4xl font-black text-slate-900 mb-4">{sectionContent.title}</h2>
-            <p className="text-slate-500">{sectionContent.subtitle}</p>
+            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 mb-2">{sectionContent.title}</h2>
+            <p className="text-slate-500 text-sm sm:text-base">{sectionContent.subtitle}</p>
           </div>
-          <button className="text-pink-500 font-bold flex items-center hover:underline">
-            Ver todo el catálogo <ShoppingBag size={20} className="ml-2" />
+          <button className="text-pink-500 font-bold text-sm flex items-center hover:underline">
+            Ver todo el catálogo <ShoppingBag size={18} className="ml-2" />
           </button>
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-20">
+          <div className="flex items-center justify-center py-12">
             <div className="animate-spin w-8 h-8 border-4 border-pink-500 border-t-transparent rounded-full" />
           </div>
         ) : products.length === 0 ? (
-          <div className="text-center py-20 bg-slate-50 rounded-[3rem] border border-dashed border-slate-200">
-            <Package className="mx-auto text-slate-300 mb-4" size={48} />
-            <p className="text-slate-500">Próximamente más productos disponibles.</p>
+          <div className="text-center py-16 bg-slate-50 rounded-[2.5rem] border border-dashed border-slate-200">
+            <Package className="mx-auto text-slate-300 mb-3" size={40} />
+            <p className="text-slate-500 text-sm">Próximamente más productos disponibles.</p>
           </div>
         ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
             {products.map((p) => (
               <div key={p.id} className="group cursor-pointer">
                 <div className="relative aspect-square rounded-[2rem] overflow-hidden mb-4 bg-slate-100">
@@ -106,23 +106,23 @@ const Products = () => {
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-slate-300">
-                      <Package size={48} />
+                      <Package size={40} />
                     </div>
                   )}
-                  <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest text-slate-800">
+                  <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest text-slate-800">
                     {p.category || 'Destacado'}
                   </div>
                 </div>
                 <div className="flex justify-between items-start">
                   <div>
-                    <h4 className="font-bold text-slate-800 mb-1">{p.name}</h4>
-                    <div className="flex text-pink-400 mb-2">
-                      {[...Array(5)].map((_, i) => <Star key={i} size={12} fill="currentColor" />)}
+                    <h4 className="font-bold text-slate-800 text-sm mb-1">{p.name}</h4>
+                    <div className="flex text-pink-400 mb-1.5">
+                      {[...Array(5)].map((_, i) => <Star key={i} size={10} fill="currentColor" />)}
                     </div>
-                    <p className="text-xl font-black text-pink-500">${formatPrice(p.price)}</p>
+                    <p className="text-lg font-black text-pink-500">${formatPrice(p.price)}</p>
                   </div>
-                  <button className="bg-slate-900 text-white p-3 rounded-xl hover:bg-pink-500 transition-colors shadow-lg">
-                    <ShoppingBag size={20} />
+                  <button className="bg-slate-900 text-white p-2.5 rounded-xl hover:bg-pink-500 transition-colors shadow-lg">
+                    <ShoppingBag size={18} />
                   </button>
                 </div>
               </div>

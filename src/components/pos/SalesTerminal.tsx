@@ -5,7 +5,7 @@ import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { 
   Plus, Minus, Trash2, Barcode, Search, ShoppingCart, 
   DollarSign, CreditCard, X, AlertCircle, Users, 
-  ArrowRightLeft, Eye, Power, Play, UserPlus 
+  ArrowRightLeft, Eye, Power, Play, UserPlus, Trash, FileText
 } from 'lucide-react';
 import Scanner from '../shared/Scanner';
 import OpenCashModal from './OpenCashModal';
@@ -38,6 +38,7 @@ interface Sale {
   items: { name: string; price: number; quantity: number }[];
   payment_method: string;
   customer_id?: string;
+  notes?: string;
 }
 
 interface CartItem extends Product {
@@ -50,6 +51,7 @@ const SalesTerminal: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [saleNotes, setSaleNotes] = useState('');
   const [showScanner, setShowScanner] = useState(false);
   const [showOpenCashModal, setShowOpenCashModal] = useState(false);
   const [showCloseCashModal, setShowCloseCashModal] = useState(false);
@@ -143,6 +145,15 @@ const SalesTerminal: React.FC = () => {
     setIsCartOpen(true);
   };
 
+  const clearCart = () => {
+    if (cart.length === 0) return;
+    if (confirm('¿Vaciar el carrito?')) {
+      setCart([]);
+      setSaleNotes('');
+      setSelectedCustomerId('');
+    }
+  };
+
   const removeFromCart = (productId: string) => {
     setCart(prev => prev.filter(item => item.id !== productId));
   };
@@ -197,7 +208,8 @@ const SalesTerminal: React.FC = () => {
         total,
         items,
         payment_method: paymentMethod,
-        customer_id: paymentMethod === 'cuenta_corriente' ? selectedCustomerId : null
+        customer_id: paymentMethod === 'cuenta_corriente' ? selectedCustomerId : null,
+        notes: saleNotes
       }]);
 
       if (error) throw error;
@@ -232,6 +244,7 @@ const SalesTerminal: React.FC = () => {
 
       toast.success('Venta realizada con éxito');
       setCart([]);
+      setSaleNotes('');
       setIsCartOpen(false);
       setSelectedCustomerId('');
       fetchProducts();
@@ -401,51 +414,96 @@ const SalesTerminal: React.FC = () => {
 
       {/* Cart Sidebar Overlay */}
       {isCartOpen && (
-        <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm lg:bg-transparent lg:backdrop-blur-none" onClick={() => setIsCartOpen(false)}>
+        <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm" onClick={() => setIsCartOpen(false)}>
           <div 
-            className="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl p-6 flex flex-col animate-in slide-in-from-right duration-300"
+            className="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300"
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center mb-6">
+            {/* Cart Header */}
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <div className="flex items-center gap-3">
-                <div className="bg-pink-100 p-2 rounded-xl text-pink-500">
+                <div className="bg-pink-500 p-2.5 rounded-xl text-white shadow-lg shadow-pink-100">
                   <ShoppingCart size={20} />
                 </div>
-                <h3 className="text-xl font-black text-slate-800 tracking-tight">Tu Carrito</h3>
+                <div>
+                  <h3 className="text-xl font-black text-slate-800 tracking-tight">Carrito</h3>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{cartCount} artículos</p>
+                </div>
               </div>
-              <button onClick={() => setIsCartOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all">
-                <X size={24} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={clearCart}
+                  className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                  title="Vaciar Carrito"
+                >
+                  <Trash size={20} />
+                </button>
+                <button onClick={() => setIsCartOpen(false)} className="p-2.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all">
+                  <X size={24} />
+                </button>
+              </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
-              {cart.map(item => (
-                <div key={item.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group">
-                  <div className="flex-1">
-                    <p className="font-bold text-slate-800 text-sm line-clamp-1">{item.name}</p>
-                    <p className="text-pink-500 font-black text-sm">${formatPrice(item.price)}</p>
+            {/* Cart Items */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+              {cart.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-4">
+                  <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center">
+                    <ShoppingCart size={40} className="opacity-20" />
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center bg-white rounded-xl border border-slate-200 p-1">
-                      <button onClick={() => updateQuantity(item.id, -1)} className="w-7 h-7 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-500">
+                  <p className="font-bold text-sm">El carrito está vacío</p>
+                </div>
+              ) : (
+                cart.map(item => (
+                  <div key={item.id} className="flex items-center gap-4 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm group hover:border-pink-200 transition-all">
+                    <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-50 shrink-0">
+                      {item.image_url ? (
+                        <img src={item.image_url} className="w-full h-full object-cover" alt={item.name} />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-200">
+                          <ShoppingCart size={20} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-slate-800 text-sm truncate">{item.name}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-pink-500 font-black text-sm">${formatPrice(item.price)}</span>
+                        <span className="text-[10px] text-slate-400 font-medium">x {item.quantity}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center bg-slate-50 rounded-xl p-1 border border-slate-100">
+                      <button onClick={() => updateQuantity(item.id, -1)} className="w-8 h-8 rounded-lg hover:bg-white hover:shadow-sm flex items-center justify-center text-slate-500 transition-all">
                         <Minus size={14} />
                       </button>
-                      <span className="font-black w-8 text-center text-sm">{item.quantity}</span>
-                      <button onClick={() => updateQuantity(item.id, 1)} className="w-7 h-7 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-500">
+                      <span className="font-black w-8 text-center text-sm text-slate-700">{item.quantity}</span>
+                      <button onClick={() => updateQuantity(item.id, 1)} className="w-8 h-8 rounded-lg hover:bg-white hover:shadow-sm flex items-center justify-center text-slate-500 transition-all">
                         <Plus size={14} />
                       </button>
                     </div>
-                    <button onClick={() => removeFromCart(item.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors">
-                      <Trash2 size={18} />
-                    </button>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
 
-            <div className="mt-6 pt-6 border-t border-slate-100 space-y-6">
+            {/* Cart Footer */}
+            <div className="p-6 bg-slate-50 border-t border-slate-100 space-y-6">
+              {/* Sale Notes */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                  <FileText size={12} /> Notas de la venta
+                </div>
+                <textarea
+                  value={saleNotes}
+                  onChange={e => setSaleNotes(e.target.value)}
+                  placeholder="Ej: Descuento especial, entrega pendiente..."
+                  className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-500/20 outline-none text-xs font-medium resize-none h-16 transition-all"
+                />
+              </div>
+
+              {/* Payment Method */}
               <div className="space-y-3">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Método de Pago</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Método de Pago</p>
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { id: 'efectivo', label: 'Efectivo', icon: DollarSign },
@@ -456,10 +514,10 @@ const SalesTerminal: React.FC = () => {
                     <button
                       key={method.id}
                       onClick={() => setPaymentMethod(method.id as any)}
-                      className={`p-3 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-all ${
+                      className={`p-3 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-all border ${
                         paymentMethod === method.id
-                          ? 'bg-pink-500 text-white shadow-lg shadow-pink-100'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          ? 'bg-pink-500 text-white border-pink-500 shadow-lg shadow-pink-100'
+                          : 'bg-white text-slate-600 border-slate-200 hover:border-pink-200'
                       }`}
                     >
                       <method.icon size={14} />
@@ -469,23 +527,24 @@ const SalesTerminal: React.FC = () => {
                 </div>
               </div>
 
+              {/* Customer Selection for Cta Cte */}
               {paymentMethod === 'cuenta_corriente' && (
-                <div className="space-y-2">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Seleccionar Cliente</p>
+                <div className="space-y-2 animate-in slide-in-from-bottom-2 duration-300">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Seleccionar Cliente</p>
                   <div className="flex gap-2">
                     <select
                       value={selectedCustomerId}
                       onChange={e => setSelectedCustomerId(e.target.value)}
-                      className="flex-1 p-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-pink-500/20 outline-none text-sm font-medium"
+                      className="flex-1 p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-500/20 outline-none text-sm font-medium"
                     >
                       <option value="">Seleccionar cliente...</option>
                       {customers.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
+                        <option key={c.id} value={c.id}>{c.name} (Saldo: ${formatPrice(c.balance)})</option>
                       ))}
                     </select>
                     <button
                       onClick={() => setShowNewCustomerModal(true)}
-                      className="p-3 bg-slate-900 text-white rounded-xl hover:bg-pink-500 transition-colors"
+                      className="p-3 bg-slate-900 text-white rounded-xl hover:bg-pink-500 transition-all shadow-lg"
                       title="Nuevo Cliente"
                     >
                       <UserPlus size={20} />
@@ -494,14 +553,16 @@ const SalesTerminal: React.FC = () => {
                 </div>
               )}
 
-              <div className="bg-slate-900 rounded-3xl p-6 text-white">
+              {/* Checkout Button */}
+              <div className="bg-slate-900 rounded-[2rem] p-6 text-white shadow-2xl shadow-slate-200">
                 <div className="flex justify-between items-center mb-4">
                   <span className="text-slate-400 font-bold text-sm">Total a pagar</span>
-                  <span className="text-3xl font-black">${formatPrice(cartTotal)}</span>
+                  <span className="text-3xl font-black tracking-tight">${formatPrice(cartTotal)}</span>
                 </div>
                 <button
                   onClick={handleCheckout}
-                  className="w-full py-4 bg-pink-500 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-pink-600 transition-all active:scale-95 shadow-xl shadow-pink-900/20"
+                  disabled={cart.length === 0}
+                  className="w-full py-4 bg-pink-500 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-pink-600 transition-all active:scale-95 shadow-xl shadow-pink-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Finalizar Venta
                 </button>

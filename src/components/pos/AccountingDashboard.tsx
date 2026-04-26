@@ -66,7 +66,6 @@ const AccountingDashboard: React.FC = () => {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      // Filtros de fecha para las queries
       const { data: allSales } = await supabase
         .from('sales')
         .select('total, created_at, payment_method')
@@ -93,7 +92,6 @@ const AccountingDashboard: React.FC = () => {
         activeCustomers
       });
 
-      // Procesar datos por categoría
       const catMap: Record<string, number> = {};
       (allExpenses || []).forEach(e => {
         const cat = e.category || 'Sin Categoría';
@@ -102,7 +100,6 @@ const AccountingDashboard: React.FC = () => {
       
       setCategoryData(Object.entries(catMap).map(([name, value]) => ({ name, value })));
 
-      // Movimientos combinados
       const movements: Movement[] = [
         ...(allSales || []).map((s: any) => ({
           id: Math.random().toString(),
@@ -124,7 +121,6 @@ const AccountingDashboard: React.FC = () => {
 
       setRecentMovements(movements);
 
-      // Datos para el gráfico de tendencia (últimos 7 días del rango seleccionado)
       const dailyData = [];
       let curr = new Date(dateRange.start);
       const end = new Date(dateRange.end);
@@ -144,7 +140,7 @@ const AccountingDashboard: React.FC = () => {
           gastos: dayExpenses
         });
         curr.setDate(curr.getDate() + 1);
-        if (dailyData.length > 31) break; // Limitar a un mes para el gráfico
+        if (dailyData.length > 31) break;
       }
       setChartData(dailyData);
 
@@ -183,7 +179,6 @@ const AccountingDashboard: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      {/* Header & Global Filters */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">Gestión Financiera</h1>
@@ -216,7 +211,6 @@ const AccountingDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Internal Navigation Tabs */}
       <div className="flex gap-2 p-1.5 bg-slate-100 rounded-[2rem] w-fit">
         {[
           { id: 'resumen', label: 'Resumen', icon: LayoutDashboard },
@@ -240,7 +234,6 @@ const AccountingDashboard: React.FC = () => {
 
       {activeTab === 'resumen' && (
         <div className="space-y-8 animate-in fade-in duration-500">
-          {/* Stats Grid */}
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm">
               <div className="w-12 h-12 bg-pink-100 text-pink-600 rounded-2xl flex items-center justify-center mb-4"><TrendingUp size={24} /></div>
@@ -289,10 +282,10 @@ const AccountingDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col">
               <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2"><PieChart size={24} className="text-blue-500" /> Gastos por Categoría</h3>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="flex-1 min-h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <RePieChart>
                     <Pie data={categoryData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
                       {categoryData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}

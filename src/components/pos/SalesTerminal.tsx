@@ -46,6 +46,8 @@ interface CartItem extends Product {
   quantity: number;
 }
 
+const STORAGE_KEY = 'piamontino_pos_state';
+
 const SalesTerminal: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -64,6 +66,33 @@ const SalesTerminal: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'tarjeta' | 'transferencia' | 'cuenta_corriente'>('efectivo');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
+
+  // Load state from localStorage on mount
+  useEffect(() => {
+    const savedState = localStorage.getItem(STORAGE_KEY);
+    if (savedState) {
+      try {
+        const parsed = JSON.parse(savedState);
+        setCart(parsed.cart || []);
+        setSaleNotes(parsed.saleNotes || '');
+        setPaymentMethod(parsed.paymentMethod || 'efectivo');
+        setSelectedCustomerId(parsed.selectedCustomerId || '');
+      } catch (e) {
+        console.error("Error parsing saved POS state", e);
+      }
+    }
+  }, []);
+
+  // Save state to localStorage whenever it changes
+  useEffect(() => {
+    const stateToSave = {
+      cart,
+      saleNotes,
+      paymentMethod,
+      selectedCustomerId
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+  }, [cart, saleNotes, paymentMethod, selectedCustomerId]);
 
   const formatPrice = (price: number) => {
     return price.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -151,6 +180,7 @@ const SalesTerminal: React.FC = () => {
       setCart([]);
       setSaleNotes('');
       setSelectedCustomerId('');
+      localStorage.removeItem(STORAGE_KEY);
     }
   };
 
@@ -242,6 +272,7 @@ const SalesTerminal: React.FC = () => {
       setSaleNotes('');
       setIsMobileCartOpen(false);
       setSelectedCustomerId('');
+      localStorage.removeItem(STORAGE_KEY);
       fetchProducts();
       fetchCustomers();
       fetchSales();

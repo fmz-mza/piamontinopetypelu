@@ -10,6 +10,8 @@ interface BookingModalProps {
   onClose: () => void;
 }
 
+const STORAGE_KEY = 'piamontino_booking_form';
+
 const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
   const [services, setServices] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(false);
@@ -23,16 +25,35 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
     notes: ''
   });
 
+  // Load from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        setFormData(JSON.parse(saved));
+      } catch (e) {
+        console.error("Error parsing saved booking form", e);
+      }
+    }
+  }, []);
+
+  // Save to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
+  }, [formData]);
+
   useEffect(() => {
     if (isOpen) {
       fetchServices();
-      // Set default date to tomorrow
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      setFormData(prev => ({
-        ...prev,
-        appointment_date: tomorrow.toISOString().split('T')[0]
-      }));
+      // Set default date to tomorrow if empty
+      if (!formData.appointment_date) {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        setFormData(prev => ({
+          ...prev,
+          appointment_date: tomorrow.toISOString().split('T')[0]
+        }));
+      }
     }
   }, [isOpen]);
 
@@ -57,6 +78,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
       if (error) throw error;
 
       toast.success('¡Solicitud enviada! Nos contactaremos pronto.');
+      localStorage.removeItem(STORAGE_KEY);
       onClose();
       setFormData({
         customer_name: '',

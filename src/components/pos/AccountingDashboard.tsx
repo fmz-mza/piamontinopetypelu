@@ -7,7 +7,7 @@ import {
   AlertCircle, CreditCard, Eye, Package, Trash2, FileText, 
   Calendar, PieChart, History, ArrowRightLeft, LayoutDashboard,
   Receipt, Wallet, ClipboardList, Truck
-} from 'lucide-react';
+} from 'lucide-center';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
@@ -303,7 +303,7 @@ const AccountingDashboard: React.FC = () => {
                       >
                         {categoryData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                       </Pie>
-                      <Tooltip formatter={(v: number) => `$${formatPrice(v)}`} />
+                      <Tooltip formatter={(value: any) => `$${formatPrice(Number(value))}`} />
                       <Legend verticalAlign="bottom" iconType="circle" />
                     </RePieChart>
                   </ResponsiveContainer>

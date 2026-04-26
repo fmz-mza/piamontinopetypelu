@@ -97,6 +97,15 @@ const SupplierManager: React.FC = () => {
     setStatementLoading(false);
   };
 
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    // Si la fecha viene sin hora (YYYY-MM-DD), forzamos la interpretación local
+    if (dateStr.length === 10) {
+      return new Date(dateStr + 'T00:00:00').toLocaleDateString('es-AR');
+    }
+    return new Date(dateStr).toLocaleDateString('es-AR');
+  };
+
   const filtered = suppliers.filter(s => 
     s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     s.company?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -148,8 +157,8 @@ const SupplierManager: React.FC = () => {
               <div className="flex items-center gap-2 text-sm">
                 <DollarSign size={14} className="text-green-500" />
                 <span className={`font-medium ${s.balance > 0 ? 'text-red-500' : s.balance < 0 ? 'text-green-500' : 'text-slate-500'}`}>
-                  {s.balance > 0 ? `Deuda: $${s.balance.toFixed(2)}` : 
-                   s.balance < 0 ? `Saldo a favor: $${Math.abs(s.balance).toFixed(2)}` : 
+                  {s.balance > 0 ? `Deuda: $${s.balance.toLocaleString()}` : 
+                   s.balance < 0 ? `Saldo a favor: $${Math.abs(s.balance).toLocaleString()}` : 
                    'Sin deuda'}
                 </span>
               </div>
@@ -286,8 +295,8 @@ const SupplierManager: React.FC = () => {
                 <p className="text-slate-500">
                   Balance actual: 
                   <span className={selectedSupplier.balance > 0 ? 'text-red-500 font-bold' : selectedSupplier.balance < 0 ? 'text-green-500 font-bold' : 'text-slate-500'}>
-                    {selectedSupplier.balance > 0 ? ` $${selectedSupplier.balance.toFixed(2)} (Deuda)` : 
-                     selectedSupplier.balance < 0 ? ` $${Math.abs(selectedSupplier.balance).toFixed(2)} a favor` : 
+                    {selectedSupplier.balance > 0 ? ` $${selectedSupplier.balance.toLocaleString()} (Deuda)` : 
+                     selectedSupplier.balance < 0 ? ` $${Math.abs(selectedSupplier.balance).toLocaleString()} a favor` : 
                      ' $0 (Sin deuda)'}
                   </span>
                 </p>
@@ -302,15 +311,15 @@ const SupplierManager: React.FC = () => {
                     statementData.map((tx: any, index: number) => (
                       <div key={tx.id} className="border-l-2 border-pink-500 pl-4">
                         <div className="flex justify-between items-start mb-1">
-                          <span className="text-sm text-slate-500">{new Date(tx.date).toLocaleDateString()}</span>
+                          <span className="text-sm text-slate-500">{formatDate(tx.date)}</span>
                           <span className="text-sm font-medium px-2 py-0.5 rounded-full bg-slate-100">
                             {tx.type === 'compra' ? 'Compra' : 'Pago'}
                           </span>
                         </div>
                         <p className="text-slate-600 text-sm">{tx.description}</p>
                         <div className="flex justify-between items-baseline mt-1">
-                          <span className={`text-sm font-bold ${tx.type === 'compra' ? 'text-red-500' : 'text-green-500'}`}>
-                            {tx.type === 'compra' ? `-$${tx.amount.toFixed(2)}` : `+$${tx.amount.toFixed(2)}`}
+                          <span className={`text-sm font-bold ${tx.type === 'compra' ? 'text-red-500' : 'text-green-600'}`}>
+                            {tx.type === 'compra' ? `-$${tx.amount.toLocaleString()}` : `+$${tx.amount.toLocaleString()}`}
                           </span>
                         </div>
                       </div>

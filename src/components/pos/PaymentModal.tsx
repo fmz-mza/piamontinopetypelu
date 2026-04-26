@@ -12,7 +12,6 @@ interface PaymentModalProps {
 }
 
 const PaymentModal: React.FC<PaymentModalProps> = ({ supplier, onClose, onSuccess }) => {
-  // Pre-completamos con el balance (deuda) del proveedor
   const [amount, setAmount] = useState(supplier.balance > 0 ? supplier.balance.toString() : '');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -26,6 +25,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ supplier, onClose, onSucces
 
     setSaving(true);
     try {
+      // Usamos la fecha y hora local actual en formato ISO
+      const now = new Date();
+      const isoString = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString();
+      const dateOnly = isoString.split('T')[0];
+
       // 1. Insert supplier transaction (payment)
       const { error: txError } = await supabase
         .from('supplier_transactions')
@@ -34,12 +38,12 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ supplier, onClose, onSucces
           type: 'pago',
           amount: paymentAmount,
           description: notes || `Pago a proveedor`,
-          date: new Date().toISOString()
+          date: isoString
         }]);
 
       if (txError) throw txError;
 
-      // 2. Update supplier balance (reduce debt)
+      // 2. Update supplier balance
       const { data: supplierData, error: fetchError } = await supabase
         .from('suppliers')
         .select('balance')
@@ -58,14 +62,14 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ supplier, onClose, onSucces
 
       if (balanceError) throw balanceError;
 
-      // 3. Insert into expenses
+      // 3. Insert into expenses (usando la fecha local YYYY-MM-DD)
       const { error: expenseError } = await supabase
         .from('expenses')
         .insert([{
           description: `Pago a Proveedor: ${supplier.name}`,
           amount: paymentAmount,
           category: 'Mercadería',
-          date: new Date().toISOString().split('T')[0],
+          date: dateOnly,
           type: 'egreso'
         }]);
 
